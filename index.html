@@ -1,0 +1,2970 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinTrack — Controle Financeiro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    /* ─── DESIGN TOKENS ─────────────────────────────────────── */
+    :root {
+      --bg:         #0f1117;
+      --bg-surface: #171b26;
+      --bg-card:    #1e2333;
+      --bg-hover:   #252a3a;
+      --border:     #2a3045;
+      --border-soft:#1f2638;
+
+      --accent:     #4f8ef7;
+      --accent-dim: #1a2d54;
+      --accent-glow:rgba(79,142,247,.15);
+
+      --green:      #34d399;
+      --green-dim:  #0d2e22;
+      --amber:      #fbbf24;
+      --amber-dim:  #2e2007;
+      --red:        #f87171;
+      --red-dim:    #2e0d0d;
+      --purple:     #a78bfa;
+      --purple-dim: #1e1535;
+
+      --text-1:     #f0f2f8;
+      --text-2:     #8b93a8;
+      --text-3:     #50586e;
+
+      --font:       'Inter', sans-serif;
+      --mono:       'JetBrains Mono', monospace;
+
+      --radius-sm:  6px;
+      --radius:     10px;
+      --radius-lg:  16px;
+
+      --nav-w:      220px;
+      --header-h:   56px;
+    }
+
+    /* ─── RESET ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-1);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+    a { text-decoration: none; color: inherit; }
+    button { border: none; cursor: pointer; font-family: var(--font); }
+    input, select, textarea { font-family: var(--font); }
+    ul { list-style: none; }
+
+    /* ─── LAYOUT SHELL ───────────────────────────────────────── */
+    #app { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ─── SIDEBAR ────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--nav-w);
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: transform .25s ease;
+      z-index: 100;
+    }
+    .sidebar-logo {
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo-mark {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 7px;
+      display: grid; place-items: center;
+      flex-shrink: 0;
+    }
+    .logo-mark svg { width:14px; height:14px; fill:#fff; }
+    .logo-text { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
+    .logo-sub  { font-size: 9px; color: var(--text-3); font-weight: 500; letter-spacing: .5px; margin-top:1px; }
+
+    .nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+    .nav-section { margin-bottom: 20px; }
+    .nav-label {
+      font-size: 10px; font-weight: 600; color: var(--text-3);
+      letter-spacing: .8px; padding: 4px 10px 8px;
+      text-transform: uppercase;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--text-2);
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      user-select: none;
+    }
+    .nav-item:hover { background: var(--bg-hover); color: var(--text-1); }
+    .nav-item.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .8; }
+    .nav-item.active svg { opacity: 1; }
+
+    .sidebar-footer {
+      padding: 12px 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ─── MAIN AREA ──────────────────────────────────────────── */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+
+    .topbar {
+      height: var(--header-h);
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar-title { font-size: 15px; font-weight: 600; }
+    .topbar-subtitle { font-size: 12px; color: var(--text-3); }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+
+    .content { flex: 1; overflow-y: auto; padding: 24px; }
+
+    /* ─── VIEWS ──────────────────────────────────────────────── */
+    .view { display: none; animation: fadeIn .2s ease; }
+    .view.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    /* ─── TYPOGRAPHY ─────────────────────────────────────────── */
+    .page-title   { font-size: 22px; font-weight: 700; letter-spacing: -.4px; margin-bottom: 4px; }
+    .page-sub     { font-size: 13px; color: var(--text-2); margin-bottom: 24px; }
+    .section-title{ font-size: 13px; font-weight: 600; color: var(--text-2); letter-spacing: .2px; margin-bottom: 12px; }
+
+    /* ─── CARDS GRID ─────────────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+    }
+    .card-sm { padding: 14px 16px; }
+
+    /* ─── KPI CARD ───────────────────────────────────────────── */
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .kpi-header { display: flex; align-items: flex-start; justify-content: space-between; }
+    .kpi-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: grid; place-items: center; flex-shrink: 0;
+    }
+    .kpi-icon svg { width: 18px; height: 18px; }
+    .kpi-badge {
+      font-size: 10px; font-weight: 600; padding: 2px 7px;
+      border-radius: 99px; letter-spacing: .2px;
+    }
+    .kpi-label { font-size: 11px; color: var(--text-2); font-weight: 500; margin-bottom: 2px; }
+    .kpi-value {
+      font-size: 24px; font-weight: 700; letter-spacing: -.5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-foot { font-size: 11px; color: var(--text-3); }
+
+    /* color variants */
+    .c-blue   { background: var(--accent-dim); color: var(--accent); }
+    .c-green  { background: var(--green-dim);  color: var(--green);  }
+    .c-amber  { background: var(--amber-dim);  color: var(--amber);  }
+    .c-red    { background: var(--red-dim);    color: var(--red);    }
+    .c-purple { background: var(--purple-dim); color: var(--purple); }
+
+    /* ─── BUTTON ─────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500;
+      transition: all .15s;
+      cursor: pointer;
+    }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      border: none;
+    }
+    .btn-primary:hover { background: #3b7fe8; }
+    .btn-ghost {
+      background: transparent; color: var(--text-2);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg-hover); color: var(--text-1); }
+    .btn-danger {
+      background: var(--red-dim); color: var(--red);
+      border: 1px solid transparent;
+    }
+    .btn-danger:hover { border-color: var(--red); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-icon { padding: 7px; border-radius: var(--radius-sm); }
+
+    /* ─── INPUT / FORM ───────────────────────────────────────── */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block; font-size: 12px; font-weight: 500;
+      color: var(--text-2); margin-bottom: 6px;
+    }
+    .form-control {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-1);
+      padding: 9px 12px;
+      font-size: 13px;
+      transition: border-color .15s;
+      outline: none;
+    }
+    .form-control:focus { border-color: var(--accent); }
+    .form-control::placeholder { color: var(--text-3); }
+    select.form-control { appearance: none; cursor: pointer; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+    .form-section-title {
+      font-size: 13px; font-weight: 600; color: var(--text-2);
+      margin: 20px 0 14px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    /* ─── TABLE ──────────────────────────────────────────────── */
+    .table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .table-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-soft);
+      gap: 12px;
+    }
+    .table-toolbar-left { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .table-toolbar-right { display: flex; gap: 8px; }
+    .search-wrap { position: relative; flex: 1; max-width: 280px; }
+    .search-wrap svg {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      width: 14px; height: 14px; color: var(--text-3); pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      padding: 7px 10px 7px 32px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-1); font-size: 13px; outline: none;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--text-3); }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      font-size: 11px; font-weight: 600; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: .5px;
+      padding: 10px 18px; text-align: left;
+      border-bottom: 1px solid var(--border-soft);
+      white-space: nowrap; user-select: none;
+    }
+    tbody tr { border-bottom: 1px solid var(--border-soft); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--bg-hover); }
+    tbody td { padding: 11px 18px; font-size: 13px; color: var(--text-1); }
+    .td-label { color: var(--text-2); }
+    .td-mono { font-family: var(--mono); font-size: 12px; }
+    .td-actions { display: flex; gap: 4px; justify-content: flex-end; }
+    .amount-positive { color: var(--green); }
+    .amount-negative { color: var(--red); }
+
+    /* ─── BADGE ──────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 99px;
+      font-size: 11px; font-weight: 600;
+    }
+
+    /* ─── CHIP ───────────────────────────────────────────────── */
+    .chip {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: 99px;
+      font-size: 11px; font-weight: 500;
+      background: var(--bg-hover); color: var(--text-2);
+      border: 1px solid var(--border);
+      cursor: pointer; transition: all .15s;
+    }
+    .chip.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-dim); }
+
+    /* ─── DIVIDER ────────────────────────────────────────────── */
+    .divider { height: 1px; background: var(--border-soft); margin: 20px 0; }
+
+    /* ─── MODAL ──────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6); backdrop-filter: blur(4px);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      width: min(520px, 95vw);
+      max-height: 90vh; overflow-y: auto;
+      transform: scale(.96) translateY(8px);
+      transition: transform .2s;
+    }
+    .modal-overlay.open .modal { transform: none; }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .modal-title { font-size: 16px; font-weight: 600; }
+    .modal-body { padding: 20px 24px 24px; }
+    .modal-close {
+      background: none; color: var(--text-3);
+      padding: 4px; border-radius: 4px; line-height: 0;
+      transition: color .15s;
+    }
+    .modal-close:hover { color: var(--text-1); }
+    .modal-close svg { width: 18px; height: 18px; }
+
+    /* ─── CONFIRM DIALOG ─────────────────────────────────────── */
+    .confirm-modal { max-width: 380px; }
+    .confirm-text { color: var(--text-2); font-size: 13px; line-height: 1.6; }
+
+    /* ─── TOAST ──────────────────────────────────────────────── */
+    .toast-wrap {
+      position: fixed; bottom: 24px; right: 24px;
+      z-index: 300; display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 13px;
+      display: flex; align-items: center; gap: 10px;
+      min-width: 240px; max-width: 360px;
+      animation: slideIn .2s ease;
+      box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    }
+    .toast.success { border-left: 3px solid var(--green); }
+    .toast.error   { border-left: 3px solid var(--red); }
+    .toast.info    { border-left: 3px solid var(--accent); }
+    @keyframes slideIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:none; } }
+
+    /* ─── UPLOAD AREA ────────────────────────────────────────── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      background: var(--bg);
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+    .upload-zone.has-file {
+      border-color: var(--green);
+      background: var(--green-dim);
+    }
+    .upload-icon {
+      width: 56px; height: 56px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .upload-icon svg { width: 28px; height: 28px; }
+    .upload-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .upload-sub { font-size: 12px; color: var(--text-3); }
+    .upload-formats {
+      margin-top: 12px;
+      display: flex; gap: 6px; justify-content: center;
+    }
+
+    /* ─── PROGRESS ───────────────────────────────────────────── */
+    .progress-bar {
+      height: 4px; background: var(--border);
+      border-radius: 99px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--accent);
+      border-radius: 99px;
+      transition: width .3s ease;
+    }
+
+    /* ─── STATUS INDICATOR ───────────────────────────────────── */
+    .status-step {
+      display: flex; gap: 14px; align-items: flex-start;
+      padding: 14px 0; border-bottom: 1px solid var(--border-soft);
+    }
+    .status-step:last-child { border-bottom: none; }
+    .status-dot {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: grid; place-items: center; flex-shrink: 0; margin-top: 2px;
+    }
+    .status-dot svg { width: 14px; height: 14px; }
+    .status-dot.pending { background: var(--bg-hover); }
+    .status-dot.running { background: var(--accent-dim); animation: pulse 1.5s infinite; }
+    .status-dot.done    { background: var(--green-dim); }
+    .status-dot.error   { background: var(--red-dim); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .status-label { font-size: 13px; font-weight: 500; }
+    .status-sub   { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+    /* ─── EMPTY STATE ────────────────────────────────────────── */
+    .empty-state {
+      padding: 56px 24px;
+      text-align: center;
+      color: var(--text-3);
+    }
+    .empty-state svg { width: 40px; height: 40px; margin: 0 auto 14px; opacity: .4; display: block; }
+    .empty-title { font-size: 14px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; }
+    .empty-sub { font-size: 12px; }
+
+    /* ─── SKELETON ───────────────────────────────────────────── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: var(--radius-sm);
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ─── PREVIEW SECTION (FE-001 timeline) ──────────────────── */
+    .mini-bar-wrap { display: flex; gap: 4px; align-items: flex-end; height: 48px; margin-top: 8px; }
+    .mini-bar {
+      flex: 1; border-radius: 3px 3px 0 0;
+      background: var(--accent);
+      opacity: .5; transition: opacity .15s;
+      min-height: 4px;
+    }
+    .mini-bar.current { opacity: 1; }
+
+    /* ─── TIMELINE CHART (FE-008) ────────────────────────────── */
+    .timeline-bar {
+      flex: 1;
+      border-radius: 4px 4px 0 0;
+      background: var(--accent);
+      min-height: 4px;
+      transition: all .2s;
+      position: relative;
+      cursor: pointer;
+    }
+    .timeline-bar:hover {
+      background: var(--accent-dim);
+      transform: scaleY(1.05);
+    }
+    .timeline-bar-label {
+      position: absolute;
+      bottom: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: var(--text-3);
+      white-space: nowrap;
+    }
+    .timeline-bar-value {
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-1);
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .timeline-bar:hover .timeline-bar-value {
+      opacity: 1;
+    }
+
+    /* ─── TABS ───────────────────────────────────────────────── */
+    .tabs { display: flex; gap: 2px; margin-bottom: 20px; }
+    .tab {
+      padding: 7px 14px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500; color: var(--text-2);
+      cursor: pointer; transition: all .15s; border: none; background: none;
+    }
+    .tab.active { background: var(--accent-dim); color: var(--accent); }
+    .tab:hover:not(.active) { background: var(--bg-hover); color: var(--text-1); }
+
+    /* ─── MOBILE OVERLAY ─────────────────────────────────────── */
+    .sidebar-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      z-index: 99; display: none;
+    }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .grid-4 { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width: 768px) {
+      :root { --nav-w: 240px; }
+      .sidebar {
+        position: fixed; left: 0; top: 0; bottom: 0;
+        transform: translateX(-100%);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay.active { display: block; }
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+      .table-toolbar { flex-direction: column; align-items: stretch; }
+      .search-wrap { max-width: none; }
+      .content { padding: 16px; }
+    }
+
+    /* ─── SCROLLBAR ──────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 3.5a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/></svg>
+      </div>
+      <div>
+        <div class="logo-text">FinTrack</div>
+        <div class="logo-sub">CONTROLE FINANCEIRO</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Visão Geral</div>
+        <div class="nav-item active" data-view="home">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" data-view="spreadsheet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="16" y2="18"/></svg>
+          Planilha
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Gerenciar</div>
+        <div class="nav-item" data-view="expenses">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+          Gastos
+        </div>
+        <div class="nav-item" data-view="upload">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          Upload de Fatura
+        </div>
+        <div class="nav-item" data-view="review">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Revisão de Transações
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Análise</div>
+        <div class="nav-item" data-view="cardview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          Visão por Cartão
+        </div>
+        <div class="nav-item" data-view="reports">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Relatórios
+        </div>
+        <div class="nav-item" data-view="timeline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Linha do Tempo
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Minha Conta
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="btn btn-ghost btn-icon" id="menuToggle" style="display:none" aria-label="Menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div>
+          <div class="topbar-title" id="pageTitle">Dashboard</div>
+          <div class="topbar-subtitle" id="pageSubtitle">Resumo financeiro do mês atual</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span style="font-size:12px;color:var(--text-3);font-family:var(--mono)" id="currentDate"></span>
+        <button class="btn btn-primary btn-sm" id="quickAddBtn" data-view="expenses">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Novo Gasto
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- ════════════════════════════════════════════════════════
+           FE-001 — HOME DASHBOARD
+      ════════════════════════════════════════════════════════ -->
+      <div class="view active" id="view-home">
+        <div class="page-title">Olá, bom dia 👋</div>
+        <div class="page-sub">Aqui está o resumo do seu mês atual — <span id="monthLabel"></span></div>
+
+        <!-- KPI Row -->
+        <div class="grid-4" style="margin-bottom:20px">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <span class="badge c-blue">mês atual</span>
+            </div>
+            <div>
+              <div class="kpi-label">Total Gasto</div>
+              <div class="kpi-value" id="kpi-total">R$ 4.820</div>
+            </div>
+            <div class="kpi-foot">+12% em relação ao mês anterior</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              </div>
+              <span class="badge c-purple">principal</span>
+            </div>
+            <div>
+              <div class="kpi-label">Cartão com Maior Participação</div>
+              <div class="kpi-value" style="font-size:18px">Nubank</div>
+            </div>
+            <div class="kpi-foot">68% dos gastos do mês</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              </div>
+              <span class="badge c-amber">destaque</span>
+            </div>
+            <div>
+              <div class="kpi-label">Maior Gasto</div>
+              <div class="kpi-value" style="font-size:18px">R$ 1.200</div>
+            </div>
+            <div class="kpi-foot">MacBook Pro — 26/ago</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <span class="badge c-green">futuro</span>
+            </div>
+            <div>
+              <div class="kpi-label">Parcelas Futuras</div>
+              <div class="kpi-value">R$ 2.340</div>
+            </div>
+            <div class="kpi-foot">8 compras parceladas ativas</div>
+          </div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="grid-2" style="margin-bottom:20px">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-red">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <span class="badge c-red">fixo</span>
+            </div>
+            <div>
+              <div class="kpi-label">Despesas Fixas</div>
+              <div class="kpi-value">R$ 1.650</div>
+            </div>
+            <div class="kpi-foot">Aluguel, assinaturas, plano de saúde</div>
+          </div>
+
+          <div class="card" style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div class="kpi-label">Previsão — Próximo Mês</div>
+                <div class="kpi-value" style="font-size:20px;margin-top:4px">R$ 5.190</div>
+              </div>
+              <span class="badge c-blue">+7,7%</span>
+            </div>
+            <div class="kpi-foot" style="margin-bottom:4px">Baseado nos gastos fixos e parcelas futuras</div>
+            <div class="mini-bar-wrap" id="miniChart"></div>
+          </div>
+        </div>
+
+        <!-- Recent expenses table preview -->
+        <div class="section-title">Últimas transações</div>
+        <div class="table-wrap">
+          <table id="homeRecentTable">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Cartão</th>
+                <th style="text-align:right">Valor</th>
+              </tr>
+            </thead>
+            <tbody id="homeRecentBody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:center;margin-top:14px">
+          <button class="btn btn-ghost" data-view="expenses">Ver todos os gastos</button>
+        </div>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════════
+           FE-002 — GERENCIAR GASTOS
+      ════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-expenses">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="page-title">Gerenciar Gastos</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" id="uploadShortcut">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              Upload de Fatura
+            </button>
+            <button class="btn btn-primary" id="openAddModal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Novo Gasto
+            </button>
+          </div>
+        </div>
+        <div class="page-sub">Lançamento, edição e exclusão de transações financeiras</div>
+
+        <!-- Summary chips -->
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+          <div class="card card-sm" style="display:flex;align-items:center;gap:10px;flex:1;min-width:160px">
+            <div class="kpi-icon c-blue" style="width:30px;height:30px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div><div class="kpi-label">Total</div><div style="font-weight:700;font-size:16px" id="exp-total">R$ 0</div></div>
+          </div>
+          <div class="card card-sm" style="display:flex;align-items:center;gap:10px;flex:1;min-width:160px">
+            <div class="kpi-icon c-purple" style="width:30px;height:30px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </div>
+            <div><div class="kpi-label">Transações</div><div style="font-weight:700;font-size:16px" id="exp-count">0</div></div>
+          </div>
+          <div class="card card-sm" style="display:flex;align-items:center;gap:10px;flex:1;min-width:160px">
+            <div class="kpi-icon c-green" style="width:30px;height:30px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+            </div>
+            <div><div class="kpi-label">Maior Gasto</div><div style="font-weight:700;font-size:16px" id="exp-max">R$ 0</div></div>
+          </div>
+        </div>
+
+        <!-- Filters + Table -->
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="table-toolbar-left">
+              <div class="search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" class="search-input" id="expSearch" placeholder="Buscar por descrição…" />
+              </div>
+              <select class="form-control" id="expCatFilter" style="width:auto;padding:7px 10px">
+                <option value="">Todas as categorias</option>
+              </select>
+              <select class="form-control" id="expCardFilter" style="width:auto;padding:7px 10px">
+                <option value="">Todos os cartões</option>
+              </select>
+            </div>
+            <div class="table-toolbar-right">
+              <button class="btn btn-ghost btn-sm" id="clearFilters">Limpar</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="cursor:pointer" data-sort="date">Data <span class="sort-icon">↕</span></th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Cartão</th>
+                <th style="cursor:pointer;text-align:right" data-sort="value">Valor <span class="sort-icon">↕</span></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="expenseTableBody"></tbody>
+          </table>
+          <div id="expEmpty" class="empty-state" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+            <div class="empty-title">Nenhum gasto encontrado</div>
+            <div class="empty-sub">Tente ajustar os filtros ou adicione um novo lançamento</div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════════
+           FE-003 — UPLOAD DE FATURAS
+      ════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-upload">
+        <div class="page-title">Upload de Fatura</div>
+        <div class="page-sub">Envie sua fatura em PDF para extração automática de transações</div>
+
+        <div class="grid-2" style="gap:20px;align-items:start">
+          <!-- Left: Upload Form -->
+          <div>
+            <!-- Drop Zone -->
+            <div class="upload-zone" id="dropZone">
+              <div class="upload-icon c-blue" style="border-radius:14px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><polyline points="9 15 12 12 15 15"/></svg>
+              </div>
+              <div class="upload-title" id="dropTitle">Arraste o PDF aqui</div>
+              <div class="upload-sub" id="dropSub">ou clique para selecionar o arquivo</div>
+              <div class="upload-formats">
+                <span class="chip active">PDF</span>
+                <span class="chip">Máx. 10 MB</span>
+              </div>
+              <input type="file" id="fileInput" accept=".pdf,application/pdf" style="display:none" />
+            </div>
+
+            <!-- File selected preview -->
+            <div id="filePreview" style="display:none;margin-top:14px">
+              <div class="card card-sm" style="display:flex;align-items:center;gap:14px">
+                <div class="kpi-icon c-red" style="width:38px;height:38px;flex-shrink:0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="fileName">—</div>
+                  <div style="font-size:11px;color:var(--text-3)" id="fileSize">—</div>
+                </div>
+                <button class="btn btn-ghost btn-icon btn-sm" id="removeFile">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Card / Month metadata -->
+            <div style="margin-top:18px">
+              <div class="form-group">
+                <label class="form-label">Cartão</label>
+                <select class="form-control" id="uploadCard">
+                  <option value="">Selecione o cartão</option>
+                  <option>Nubank</option>
+                  <option>Itaú</option>
+                  <option>Bradesco</option>
+                  <option>Inter</option>
+                  <option>C6 Bank</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Mês de referência</label>
+                  <select class="form-control" id="uploadMonth">
+                    <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+                    <option value="3">Março</option><option value="4">Abril</option>
+                    <option value="5">Maio</option><option value="6">Junho</option>
+                    <option value="7">Julho</option><option value="8">Agosto</option>
+                    <option value="9">Setembro</option><option value="10">Outubro</option>
+                    <option value="11">Novembro</option><option value="12">Dezembro</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Ano</label>
+                  <select class="form-control" id="uploadYear">
+                    <option>2026</option><option>2025</option><option>2024</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Error message -->
+            <div id="uploadError" style="display:none;margin-bottom:14px">
+              <div class="card card-sm" style="border-color:var(--red);background:var(--red-dim);display:flex;gap:10px;align-items:flex-start">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" width="16" height="16" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span style="font-size:13px;color:var(--red)" id="uploadErrorMsg">Erro ao enviar arquivo.</span>
+              </div>
+            </div>
+
+            <button class="btn btn-primary" id="sendBtn" style="width:100%" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              Enviar para processamento
+            </button>
+          </div>
+
+          <!-- Right: Status / Instructions -->
+          <div>
+            <!-- Upload status panel -->
+            <div class="card" id="statusPanel">
+              <div style="font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text-2)">Status do processamento</div>
+
+              <div id="statusIdle">
+                <div class="empty-state" style="padding:32px 0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                  <div class="empty-title">Aguardando envio</div>
+                  <div class="empty-sub">Selecione um PDF para iniciar</div>
+                </div>
+              </div>
+
+              <div id="statusProcessing" style="display:none">
+                <div style="margin-bottom:16px">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:6px">
+                    <span>Processando…</span><span id="progressPct">0%</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+                </div>
+
+                <div class="status-step">
+                  <div class="status-dot" id="s-upload">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                  </div>
+                  <div><div class="status-label">Upload do arquivo</div><div class="status-sub" id="st-upload">Aguardando…</div></div>
+                </div>
+                <div class="status-step">
+                  <div class="status-dot" id="s-validate">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  </div>
+                  <div><div class="status-label">Validação</div><div class="status-sub" id="st-validate">Aguardando…</div></div>
+                </div>
+                <div class="status-step">
+                  <div class="status-dot" id="s-extract">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+                  </div>
+                  <div><div class="status-label">Extração de transações</div><div class="status-sub" id="st-extract">Aguardando…</div></div>
+                </div>
+                <div class="status-step">
+                  <div class="status-dot" id="s-done">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div><div class="status-label">Concluído</div><div class="status-sub" id="st-done">Aguardando…</div></div>
+                </div>
+              </div>
+
+              <div id="statusSuccess" style="display:none;text-align:center;padding:24px 0">
+                <div style="width:52px;height:52px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" width="24" height="24"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div style="font-size:15px;font-weight:600;color:var(--green);margin-bottom:6px">Fatura processada!</div>
+                <div style="font-size:12px;color:var(--text-3);margin-bottom:18px" id="extractCount">— transações extraídas</div>
+                <button class="btn btn-primary" style="width:100%" id="goToReviewBtn">Revisar transações extraídas</button>
+              </div>
+
+              <div id="statusError" style="display:none;text-align:center;padding:24px 0">
+                <div style="width:52px;height:52px;border-radius:50%;background:var(--red-dim);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" width="24" height="24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
+                <div style="font-size:14px;font-weight:600;color:var(--red);margin-bottom:6px">Falha no processamento</div>
+                <div style="font-size:12px;color:var(--text-3);margin-bottom:18px" id="processErrorMsg">Não foi possível processar o arquivo.</div>
+                <button class="btn btn-ghost" style="width:100%" onclick="resetUpload()">Tentar novamente</button>
+              </div>
+            </div>
+
+            <!-- Info card -->
+            <div class="card" style="margin-top:14px">
+              <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:10px;letter-spacing:.3px">COMO FUNCIONA</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;gap:10px;align-items:flex-start">
+                  <div style="width:22px;height:22px;border-radius:50%;background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+                  <div style="font-size:12px;color:var(--text-2);line-height:1.5">Selecione o PDF da fatura do seu cartão</div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:flex-start">
+                  <div style="width:22px;height:22px;border-radius:50%;background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+                  <div style="font-size:12px;color:var(--text-2);line-height:1.5">O sistema extrai automaticamente as transações via OCR</div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:flex-start">
+                  <div style="width:22px;height:22px;border-radius:50%;background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+                  <div style="font-size:12px;color:var(--text-2);line-height:1.5">Revise e confirme os dados antes de salvar</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════════
+           FE-004 — REVISÃO DE TRANSAÇÕES EXTRAÍDAS
+      ════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-review">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="page-title">Revisão de Transações Extraídas</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" id="cancelReview">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Cancelar
+            </button>
+            <button class="btn btn-primary" id="confirmReview">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+              Confirmar Importação
+            </button>
+          </div>
+        </div>
+        <div class="page-sub">Revise, edite e valide as transações extraídas da fatura antes de salvar</div>
+
+        <!-- Summary card -->
+        <div class="card" style="margin-bottom:20px;display:flex;gap:20px;align-items:center">
+          <div class="kpi-icon c-blue" style="width:48px;height:48px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--text-2)">Transações para revisão</div>
+            <div style="font-size:24px;font-weight:700;margin-top:4px" id="reviewCount">0</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:13px;font-weight:600;color:var(--text-2)">Total estimado</div>
+            <div style="font-size:24px;font-weight:700;margin-top:4px" id="reviewTotal">R$ 0</div>
+          </div>
+        </div>
+
+        <!-- Review table -->
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Valor (R$)</th>
+                <th style="text-align:right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="reviewTableBody"></tbody>
+          </table>
+          <div id="reviewEmpty" class="empty-state" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <div class="empty-title">Nenhuma transação para revisar</div>
+            <div class="empty-sub">Faça upload de uma fatura para iniciar o processo</div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════════
+           FE-005 — VISUALIZAR PLANILHA
+      ════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-spreadsheet">
+        <div class="page-title">Planilha Financeira</div>
+        <div class="page-sub">Visualização consolidada de todos os gastos com filtros avançados</div>
+
+        <!-- Summary cards -->
+        <div class="grid-4" style="margin-bottom:20px">
+          <div class="card card-sm">
+            <div class="kpi-label">Total filtrado</div>
+            <div style="font-weight:700;font-size:18px" id="sheetTotal">R$ 0</div>
+          </div>
+          <div class="card card-sm">
+            <div class="kpi-label">Transações</div>
+            <div style="font-weight:700;font-size:18px" id="sheetCount">0</div>
+          </div>
+          <div class="card card-sm">
+            <div class="kpi-label">Média por transação</div>
+            <div style="font-weight:700;font-size:18px" id="sheetAvg">R$ 0</div>
+          </div>
+          <div class="card card-sm">
+            <div class="kpi-label">Maior valor</div>
+            <div style="font-weight:700;font-size:18px" id="sheetMax">R$ 0</div>
+          </div>
+        </div>
+
+        <!-- Advanced filters -->
+        <div class="card" style="margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:12px">Filtros Avançados</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+            <div>
+              <label class="form-label">Mês</label>
+              <select class="form-control" id="sheetMonth">
+                <option value="">Todos os meses</option>
+                <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+                <option value="3">Março</option><option value="4">Abril</option>
+                <option value="5">Maio</option><option value="6">Junho</option>
+                <option value="7">Julho</option><option value="8">Agosto</option>
+                <option value="9">Setembro</option>
+                <option value="10">Outubro</option>
+                <option value="11">Novembro</option>
+                <option value="12">Dezembro</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Ano</label>
+              <select class="form-control" id="sheetYear">
+                <option value="">Todos os anos</option>
+                <option>2026</option><option>2025</option><option>2024</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Cartão</label>
+              <select class="form-control" id="sheetCard">
+                <option value="">Todos os cartões</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Categoria</label>
+              <select class="form-control" id="sheetCategory">
+                <option value="">Todas as categorias</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Tipo</label>
+              <select class="form-control" id="sheetType">
+                <option value="">Todos os tipos</option>
+                <option value="single">Gasto único</option>
+                <option value="fixed">Despesa fixa</option>
+                <option value="installment">Parcelado</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <div class="search-wrap" style="max-width:300px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" class="search-input" id="sheetSearch" placeholder="Buscar por descrição…" />
+            </div>
+            <button class="btn btn-ghost" id="clearSheetFilters">Limpar filtros</button>
+          </div>
+        </div>
+
+        <!-- Spreadsheet table -->
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="table-toolbar-left">
+              <span style="font-size:13px;color:var(--text-2)">Resultados: <strong id="sheetResults">0</strong></span>
+            </div>
+            <div class="table-toolbar-right">
+              <button class="btn btn-ghost btn-sm" id="exportSheet">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Exportar
+              </button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="cursor:pointer" data-sort="date">Data <span class="sort-icon">↕</span></th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Cartão</th>
+                <th>Tipo</th>
+                <th style="cursor:pointer;text-align:right" data-sort="value">Valor <span class="sort-icon">↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="sheetTableBody"></tbody>
+          </table>
+          <div id="sheetEmpty" class="empty-state" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="16" y2="18"/></svg>
+            <div class="empty-title">Nenhum resultado encontrado</div>
+            <div class="empty-sub">Ajuste os filtros para ver diferentes resultados</div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════════
+           FE-006 — VISÃO POR CARTÃO
+      ════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-cardview">
+        <div class="page-title">Visão por Cartão</div>
+        <div class="page-sub">Análise detalhada dos gastos por cartão específico</div>
+
+        <!-- Card selector -->
+        <div class="card" style="margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:12px">Selecione o Cartão</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap" id="cardSelector">
+            <button class="chip card-select-btn active" data-card="">Todos</button>
+            <button class="chip card-select-btn" data-card="Nubank">Nubank</button>
+            <button class="chip card-select-btn" data-card="Itaú">Itaú</button>
+            <button class="chip card-select-btn" data-card="Bradesco">Bradesco</button>
+            <button class="chip card-select-btn" data-card="Inter">Inter</button>
+            <button class="chip card-select-btn" data-card="C6 Bank">C6 Bank</button>
+            <button class="chip card-select-btn" data-card="Dinheiro">Dinheiro</button>
+          </div>
+        </div>
+
+        <!-- Card summary KPIs -->
+        <div class="grid-4" style="margin-bottom:20px" id="cardKPIs">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <span class="badge c-blue">total</span>
+            </div>
+            <div>
+              <div class="kpi-label">Total Gasto</div>
+              <div class="kpi-value" id="cardTotal">R$ 0</div>
+            </div>
+            <div class="kpi-foot" id="cardName">Todos os cartões</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </div>
+              <span class="badge c-purple">transações</span>
+            </div>
+            <div>
+              <div class="kpi-label">Quantidade</div>
+              <div class="kpi-value" id="cardCount">0</div>
+            </div>
+            <div class="kpi-foot">Lançamentos no período</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+              </div>
+              <span class="badge c-green">média</span>
+            </div>
+            <div>
+              <div class="kpi-label">Média por Transação</div>
+              <div class="kpi-value" id="cardAvg">R$ 0</div>
+            </div>
+            <div class="kpi-foot">Valor médio de gasto</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              </div>
+              <span class="badge c-amber">maior</span>
+            </div>
+            <div>
+              <div class="kpi-label">Maior Gasto</div>
+              <div class="kpi-value" id="cardMax">R$ 0</div>
+            </div>
+            <div class="kpi-foot" id="cardMaxDesc">—</div>
+          </div>
+        </div>
+
+        <!-- Card filters -->
+        <div class="card" style="margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:12px">Filtros</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+            <div>
+              <label class="form-label">Mês</label>
+              <select class="form-control" id="cardMonth">
+                <option value="">Todos os meses</option>
+                <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+                <option value="3">Março</option><option value="4">Abril</option>
+                <option value="5">Maio</option><option value="6">Junho</option>
+                <option value="7">Julho</option><option value="8">Agosto</option>
+                <option value="9">Setembro</option><option value="10">Outubro</option>
+                <option value="11">Novembro</option><option value="12">Dezembro</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Ano</label>
+              <select class="form-control" id="cardYear">
+                <option value="">Todos os anos</option>
+                <option>2026</option><option>2025</option><option>2024</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Categoria</label>
+              <select class="form-control" id="cardCategory">
+                <option value="">Todas as categorias</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Buscar</label>
+              <input type="text" class="form-control" id="cardSearch" placeholder="Descrição…" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Card transactions table -->
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="table-toolbar-left">
+              <span style="font-size:13px;color:var(--text-2)">Resultados: <strong id="cardResults">0</strong></span>
+            </div>
+            <div class="table-toolbar-right">
+              <button class="btn btn-ghost btn-sm" id="clearCardFilters">Limpar filtros</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="cursor:pointer" data-sort="date">Data <span class="sort-icon">↕</span></th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Tipo</th>
+                <th style="cursor:pointer;text-align:right" data-sort="value">Valor <span class="sort-icon">↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="cardTableBody"></tbody>
+          </table>
+          <div id="cardEmpty" class="empty-state" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            <div class="empty-title">Nenhuma transação encontrada</div>
+            <div class="empty-sub">Selecione um cartão ou ajuste os filtros</div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════════
+           FE-007 — GERAR RELATÓRIOS
+      ════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-reports">
+        <div class="page-title">Relatórios Financeiros</div>
+        <div class="page-sub">Gere relatórios detalhados em PDF para análise e compartilhamento</div>
+
+        <!-- Report configuration -->
+        <div class="card" style="margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:12px">Configuração do Relatório</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+            <div>
+              <label class="form-label">Tipo de Relatório</label>
+              <select class="form-control" id="reportType">
+                <option value="monthly">Mensal</option>
+                <option value="annual">Anual</option>
+                <option value="custom">Período Personalizado</option>
+              </select>
+            </div>
+            <div id="reportMonthConfig">
+              <label class="form-label">Mês</label>
+              <select class="form-control" id="reportMonth">
+                <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+                <option value="3">Março</option><option value="4">Abril</option>
+                <option value="5">Maio</option><option value="6">Junho</option>
+                <option value="7">Julho</option><option value="8" selected>Agosto</option>
+                <option value="9">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+              </select>
+            </div>
+            <div id="reportYearConfig">
+              <label class="form-label">Ano</label>
+              <select class="form-control" id="reportYear">
+                <option>2026</option><option>2025</option><option>2024</option>
+              </select>
+            </div>
+            <div id="reportCustomConfig" style="display:none">
+              <label class="form-label">Data Inicial</label>
+              <input type="date" class="form-control" id="reportStartDate" />
+            </div>
+            <div id="reportCustomConfigEnd" style="display:none">
+              <label class="form-label">Data Final</label>
+              <input type="date" class="form-control" id="reportEndDate" />
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <button class="btn btn-primary" id="generateReport">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Gerar Relatório
+            </button>
+          </div>
+        </div>
+
+        <!-- Report preview -->
+        <div class="card" id="reportPreview" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div style="font-size:13px;font-weight:600;color:var(--text-2)">Pré-visualização do Relatório</div>
+            <button class="btn btn-primary btn-sm" id="downloadPdf">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download PDF
+            </button>
+          </div>
+
+          <!-- Report content -->
+          <div id="reportContent" style="background:var(--bg);padding:20px;border-radius:var(--radius-sm);border:1px solid var(--border-soft)">
+            <div style="text-align:center;margin-bottom:20px">
+              <div style="font-size:18px;font-weight:700;color:var(--text-1)">Relatório Financeiro</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:4px" id="reportPeriod">—</div>
+            </div>
+
+            <!-- Summary -->
+            <div style="margin-bottom:20px">
+              <div style="font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase">Resumo Financeiro</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+                <div style="background:var(--bg-card);padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border-soft)">
+                  <div style="font-size:10px;color:var(--text-3)">Total Gasto</div>
+                  <div style="font-size:16px;font-weight:700;color:var(--accent)" id="reportTotal">R$ 0</div>
+                </div>
+                <div style="background:var(--bg-card);padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border-soft)">
+                  <div style="font-size:10px;color:var(--text-3)">Transações</div>
+                  <div style="font-size:16px;font-weight:700;color:var(--text-1)" id="reportCount">0</div>
+                </div>
+                <div style="background:var(--bg-card);padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border-soft)">
+                  <div style="font-size:10px;color:var(--text-3)">Média</div>
+                  <div style="font-size:16px;font-weight:700;color:var(--green)" id="reportAvg">R$ 0</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- By category -->
+            <div style="margin-bottom:20px">
+              <div style="font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase">Gastos por Categoria</div>
+              <div id="reportCategories"></div>
+            </div>
+
+            <!-- By card -->
+            <div style="margin-bottom:20px">
+              <div style="font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase">Gastos por Cartão</div>
+              <div id="reportCards"></div>
+            </div>
+
+            <!-- Future indicators -->
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase">Indicadores Futuros</div>
+              <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+                <div style="background:var(--bg-card);padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border-soft)">
+                  <div style="font-size:10px;color:var(--text-3)">Parcelas Futuras</div>
+                  <div style="font-size:16px;font-weight:700;color:var(--amber)" id="reportFuture">R$ 0</div>
+                </div>
+                <div style="background:var(--bg-card);padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border-soft)">
+                  <div style="font-size:10px;color:var(--text-3)">Despesas Fixas</div>
+                  <div style="font-size:16px;font-weight:700;color:var(--red)" id="reportFixed">R$ 0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="reportEmpty" class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <div class="empty-title">Configure e gere seu relatório</div>
+          <div class="empty-sub">Selecione o período e tipo de relatório desejado</div>
+        </div>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════════
+           FE-008 — LINHA DO TEMPO
+      ════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-timeline">
+        <div class="page-title">Linha do Tempo</div>
+        <div class="page-sub">Análise histórica da evolução dos gastos ao longo do tempo</div>
+
+        <!-- Timeline filters -->
+        <div class="card" style="margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:12px">Filtros da Análise</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+            <div>
+              <label class="form-label">Período</label>
+              <select class="form-control" id="timelinePeriod">
+                <option value="6">Últimos 6 meses</option>
+                <option value="12" selected>Últimos 12 meses</option>
+                <option value="24">Últimos 24 meses</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Categoria</label>
+              <select class="form-control" id="timelineCategory">
+                <option value="">Todas as categorias</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Cartão</label>
+              <select class="form-control" id="timelineCard">
+                <option value="">Todos os cartões</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Tipo de Gasto</label>
+              <select class="form-control" id="timelineType">
+                <option value="">Todos os tipos</option>
+                <option value="fixed">Apenas despesas fixas</option>
+                <option value="installment">Apenas parceladas</option>
+                <option value="single">Apenas gastos únicos</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="grid-4" style="margin-bottom:20px">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <span class="badge c-blue">total</span>
+            </div>
+            <div>
+              <div class="kpi-label">Total no Período</div>
+              <div class="kpi-value" id="timelineTotal">R$ 0</div>
+            </div>
+            <div class="kpi-foot" id="timelinePeriodLabel">Últimos 12 meses</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+              </div>
+              <span class="badge c-green">média</span>
+            </div>
+            <div>
+              <div class="kpi-label">Média Mensal</div>
+              <div class="kpi-value" id="timelineAvg">R$ 0</div>
+            </div>
+            <div class="kpi-foot">Por mês no período</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              </div>
+              <span class="badge c-amber">pico</span>
+            </div>
+            <div>
+              <div class="kpi-label">Maior Mensal</div>
+              <div class="kpi-value" id="timelineMax">R$ 0</div>
+            </div>
+            <div class="kpi-foot" id="timelineMaxMonth">—</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon c-purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </div>
+              <span class="badge c-purple">tendência</span>
+            </div>
+            <div>
+              <div class="kpi-label">Tendência</div>
+              <div class="kpi-value" id="timelineTrend">—</div>
+            </div>
+            <div class="kpi-foot" id="timelineTrendDesc">Comparação com período anterior</div>
+          </div>
+        </div>
+
+        <!-- Timeline chart -->
+        <div class="card" style="margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:16px">Evolução Temporal</div>
+          <div id="timelineChart" style="height:300px;display:flex;align-items:flex-end;gap:8px;padding:20px 0;border-bottom:1px solid var(--border-soft)">
+            <!-- Chart bars will be rendered here -->
+          </div>
+          <div id="timelineLabels" style="display:flex;gap:8px;margin-top:8px;justify-content:space-between">
+            <!-- Month labels will be rendered here -->
+          </div>
+        </div>
+
+        <!-- Category breakdown -->
+        <div class="card">
+          <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:16px">Distribuição por Categoria no Período</div>
+          <div id="timelineCategoryBreakdown"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ─── MODAL: ADD / EDIT EXPENSE ──────────────────────────── -->
+<div class="modal-overlay" id="expenseModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Novo Gasto</div>
+      <button class="modal-close" id="closeModal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Descrição *</label>
+          <input type="text" class="form-control" id="f-desc" placeholder="Ex: Supermercado Extra" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor (R$) *</label>
+          <input type="number" class="form-control" id="f-value" placeholder="0,00" step="0.01" min="0" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data *</label>
+          <input type="date" class="form-control" id="f-date" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cartão *</label>
+          <select class="form-control" id="f-card">
+            <option value="">Selecione</option>
+            <option>Nubank</option>
+            <option>Itaú</option>
+            <option>Bradesco</option>
+            <option>Inter</option>
+            <option>C6 Bank</option>
+            <option>Dinheiro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Categoria *</label>
+          <select class="form-control" id="f-category">
+            <option value="">Selecione</option>
+            <option>Alimentação</option>
+            <option>Transporte</option>
+            <option>Moradia</option>
+            <option>Saúde</option>
+            <option>Lazer</option>
+            <option>Educação</option>
+            <option>Tecnologia</option>
+            <option>Vestuário</option>
+            <option>Assinatura</option>
+            <option>Outros</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-control" id="f-type">
+            <option value="single">Gasto único</option>
+            <option value="fixed">Despesa fixa</option>
+            <option value="installment">Parcelado</option>
+          </select>
+        </div>
+      </div>
+      <div id="installmentFields" style="display:none">
+        <div class="form-section-title">Parcelamento</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Parcela atual</label>
+            <input type="number" class="form-control" id="f-installCurr" min="1" value="1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Total de parcelas</label>
+            <input type="number" class="form-control" id="f-installTotal" min="2" value="2" />
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observação</label>
+        <input type="text" class="form-control" id="f-notes" placeholder="Opcional" />
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" id="cancelModal">Cancelar</button>
+        <button class="btn btn-primary" id="saveExpense">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: CONFIRM DELETE ──────────────────────────────── -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal confirm-modal">
+    <div class="modal-header">
+      <div class="modal-title">Excluir gasto</div>
+      <button class="modal-close" id="closeConfirm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text">Tem certeza que deseja excluir <strong id="confirmName">este gasto</strong>? Essa ação não pode ser desfeita.</p>
+      <div class="form-actions" style="margin-top:20px">
+        <button class="btn btn-ghost" id="cancelConfirm">Cancelar</button>
+        <button class="btn btn-danger" id="doDelete">Excluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: EDIT REVIEW TRANSACTION ─────────────────────── -->
+<div class="modal-overlay" id="reviewEditModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Editar Transação</div>
+      <button class="modal-close" id="closeReviewEdit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Descrição *</label>
+        <input type="text" class="form-control" id="r-desc" placeholder="Ex: Supermercado Extra" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Valor (R$) *</label>
+          <input type="number" class="form-control" id="r-value" placeholder="0,00" step="0.01" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoria *</label>
+          <select class="form-control" id="r-category">
+            <option value="">Selecione</option>
+            <option>Alimentação</option>
+            <option>Transporte</option>
+            <option>Moradia</option>
+            <option>Saúde</option>
+            <option>Lazer</option>
+            <option>Educação</option>
+            <option>Tecnologia</option>
+            <option>Vestuário</option>
+            <option>Assinatura</option>
+            <option>Outros</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" id="cancelReviewEdit">Cancelar</button>
+        <button class="btn btn-primary" id="saveReviewEdit">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TOASTS ─────────────────────────────────────────────── -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   FinTrack SPA — Angular-compatible architecture
+   Router  → showView()
+   Service → ExpenseService (CRUD + state)
+   Service → UploadService (upload simulation)
+   Utils   → toast(), formatCurrency(), formatDate()
+══════════════════════════════════════════════════════════════ */
+
+/* ─── UTILS ──────────────────────────────────────────────────────────── */
+const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
+const fmtDate = d => { if(!d) return '—'; const [y,m,dd] = d.split('-'); return `${dd}/${m}/${y}`; };
+const today = () => new Date().toISOString().split('T')[0];
+const uid = () => Math.random().toString(36).slice(2,10);
+
+function toast(msg, type='info', dur=3000){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  const icons = {
+    success:`<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>`,
+    error:`<svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    info:`<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+  };
+  el.className = `toast ${type}`;
+  el.innerHTML = `${icons[type]||''}<span>${msg}</span>`;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(16px)'; el.style.transition='.2s'; setTimeout(()=>el.remove(),200); }, dur);
+}
+
+/* ─── ROUTER ─────────────────────────────────────────────────────────── */
+const routes = {
+  home:        { title:'Dashboard',                sub:'Resumo financeiro do mês atual' },
+  expenses:    { title:'Gerenciar Gastos',         sub:'Lançamento e edição de transações' },
+  upload:      { title:'Upload de Fatura',         sub:'Envio de faturas PDF para processamento' },
+  review:      { title:'Revisão de Transações',    sub:'Revise e valide as transações extraídas' },
+  spreadsheet: { title:'Planilha Financeira',      sub:'Visualização consolidada de gastos' },
+  cardview:    { title:'Visão por Cartão',          sub:'Análise detalhada por cartão' },
+  reports:     { title:'Relatórios Financeiros',   sub:'Geração de relatórios em PDF' },
+  timeline:    { title:'Linha do Tempo',           sub:'Análise histórica de gastos' },
+};
+
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const v = document.getElementById(`view-${name}`);
+  if(v) v.classList.add('active');
+  const ni = document.querySelector(`[data-view="${name}"]`);
+  if(ni) ni.classList.add('active');
+  const r = routes[name] || {};
+  document.getElementById('pageTitle').textContent = r.title || name;
+  document.getElementById('pageSubtitle').textContent = r.sub || '';
+  closeSidebar();
+}
+
+/* ─── SIDEBAR (mobile) ───────────────────────────────────────────────── */
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('active');
+}
+document.getElementById('menuToggle').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+});
+document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+// Show hamburger on mobile
+function checkMobile(){
+  document.getElementById('menuToggle').style.display = window.innerWidth<=768?'flex':'none';
+}
+window.addEventListener('resize', checkMobile); checkMobile();
+
+/* ─── NAV CLICKS ─────────────────────────────────────────────────────── */
+document.querySelectorAll('[data-view]').forEach(el=>{
+  el.addEventListener('click',()=> showView(el.dataset.view));
+});
+
+/* ─── DATE INIT ──────────────────────────────────────────────────────── */
+const now = new Date();
+const months = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+document.getElementById('monthLabel').textContent = `${months[now.getMonth()]} de ${now.getFullYear()}`;
+document.getElementById('currentDate').textContent = now.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
+// Set default date in form
+document.getElementById('f-date').value = today();
+// Set default month in upload
+document.getElementById('uploadMonth').value = now.getMonth()+1;
+
+/* ═══════════════════════════════════════════════════════════════
+   EXPENSE SERVICE — in-memory CRUD
+═══════════════════════════════════════════════════════════════ */
+const CATEGORIES = ['Alimentação','Transporte','Moradia','Saúde','Lazer','Educação','Tecnologia','Vestuário','Assinatura','Outros'];
+const CARDS = ['Nubank','Itaú','Bradesco','Inter','C6 Bank','Dinheiro'];
+
+// Seed data
+let expenses = [
+  {id:uid(), desc:'Supermercado Extra',       value:320.50,  date:'2026-08-28', card:'Nubank',    category:'Alimentação',  type:'single',     notes:''},
+  {id:uid(), desc:'Uber',                      value:28.90,   date:'2026-08-27', card:'Itaú',      category:'Transporte',   type:'single',     notes:''},
+  {id:uid(), desc:'Netflix',                   value:44.90,   date:'2026-08-25', card:'Nubank',    category:'Assinatura',   type:'fixed',      notes:''},
+  {id:uid(), desc:'MacBook Pro M3',            value:1200.00, date:'2026-08-26', card:'Nubank',    category:'Tecnologia',   type:'installment', installCurr:1, installTotal:12, notes:''},
+  {id:uid(), desc:'Farmácia',                  value:67.30,   date:'2026-08-24', card:'Bradesco',  category:'Saúde',        type:'single',     notes:''},
+  {id:uid(), desc:'Aluguel',                   value:1800.00, date:'2026-08-05', card:'Dinheiro',  category:'Moradia',      type:'fixed',      notes:''},
+  {id:uid(), desc:'iFood',                     value:52.00,   date:'2026-08-23', card:'Inter',     category:'Alimentação',  type:'single',     notes:''},
+  {id:uid(), desc:'Academia',                  value:89.90,   date:'2026-08-01', card:'Nubank',    category:'Saúde',        type:'fixed',      notes:''},
+  {id:uid(), desc:'Posto de Gasolina',         value:180.00,  date:'2026-08-20', card:'C6 Bank',   category:'Transporte',   type:'single',     notes:''},
+  {id:uid(), desc:'Curso de Programação',      value:199.00,  date:'2026-08-15', card:'Nubank',    category:'Educação',     type:'installment', installCurr:2, installTotal:6, notes:''},
+  {id:uid(), desc:'Restaurante',               value:95.50,   date:'2026-08-18', card:'Itaú',      category:'Alimentação',  type:'single',     notes:'Jantar'},
+  {id:uid(), desc:'Spotify',                   value:21.90,   date:'2026-08-10', card:'Nubank',    category:'Assinatura',   type:'fixed',      notes:''},
+];
+
+let expSort = { col:'date', dir:'desc' };
+let expFilter = { search:'', cat:'', card:'' };
+let editingId = null;
+let deletingId = null;
+
+/* Review state for FE-004 */
+let reviewTransactions = [];
+let reviewEditingId = null;
+
+/* Spreadsheet state for FE-005 */
+let sheetFilter = { month:'', year:'', card:'', category:'', type:'', search:'' };
+let sheetSort = { col:'date', dir:'desc' };
+
+/* Card view state for FE-006 */
+let cardFilter = { card:'', month:'', year:'', category:'', search:'' };
+let cardSort = { col:'date', dir:'desc' };
+
+/* Report state for FE-007 */
+let reportData = null;
+
+/* Timeline state for FE-008 */
+let timelineFilter = { period:12, category:'', card:'', type:'' };
+
+/* populate filter dropdowns */
+function populateFilters(){
+  const catSel = document.getElementById('expCatFilter');
+  const cardSel = document.getElementById('expCardFilter');
+  catSel.innerHTML = '<option value="">Todas as categorias</option>' +
+    CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+  cardSel.innerHTML = '<option value="">Todos os cartões</option>' +
+    CARDS.map(c=>`<option>${c}</option>`).join('');
+}
+
+function populateCardSelector(){
+  const selector = document.getElementById('cardSelector');
+  selector.querySelectorAll('.card-select-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      selector.querySelectorAll('.card-select-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      cardFilter.card = btn.dataset.card;
+      renderCardView();
+    });
+  });
+}
+
+function getFiltered(){
+  return expenses.filter(e=>{
+    if(expFilter.search && !e.desc.toLowerCase().includes(expFilter.search.toLowerCase())) return false;
+    if(expFilter.cat  && e.category !== expFilter.cat)  return false;
+    if(expFilter.card && e.card     !== expFilter.card) return false;
+    return true;
+  }).sort((a,b)=>{
+    let cmp = 0;
+    if(expSort.col==='date')  cmp = a.date.localeCompare(b.date);
+    if(expSort.col==='value') cmp = a.value - b.value;
+    return expSort.dir==='asc' ? cmp : -cmp;
+  });
+}
+
+function catBadge(cat){
+  const map={
+    'Alimentação':'c-green','Transporte':'c-amber','Moradia':'c-red',
+    'Saúde':'c-red','Lazer':'c-purple','Educação':'c-blue',
+    'Tecnologia':'c-blue','Vestuário':'c-purple','Assinatura':'c-amber','Outros':''
+  };
+  return `<span class="badge ${map[cat]||''}" style="font-size:10px">${cat}</span>`;
+}
+function typeBadge(e){
+  if(e.type==='fixed') return `<span class="badge c-red" style="font-size:9px;margin-left:4px">FIXO</span>`;
+  if(e.type==='installment') return `<span class="badge c-amber" style="font-size:9px;margin-left:4px">${e.installCurr}/${e.installTotal}x</span>`;
+  return '';
+}
+
+function renderExpenseTable(){
+  const data = getFiltered();
+  const body = document.getElementById('expenseTableBody');
+  const empty = document.getElementById('expEmpty');
+
+  /* summary */
+  const total = expenses.reduce((s,e)=>s+e.value,0);
+  const max   = expenses.length ? Math.max(...expenses.map(e=>e.value)) : 0;
+  document.getElementById('exp-total').textContent = fmt(total);
+  document.getElementById('exp-count').textContent = expenses.length;
+  document.getElementById('exp-max').textContent   = fmt(max);
+
+  if(!data.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  body.innerHTML = data.map(e=>`
+    <tr>
+      <td class="td-label td-mono">${fmtDate(e.date)}</td>
+      <td>
+        <span style="font-weight:500">${e.desc}</span>${typeBadge(e)}
+        ${e.notes?`<div style="font-size:11px;color:var(--text-3);margin-top:1px">${e.notes}</div>`:''}
+      </td>
+      <td>${catBadge(e.category)}</td>
+      <td class="td-label">${e.card}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;font-size:13px">${fmt(e.value)}</td>
+      <td>
+        <div class="td-actions">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="openEdit('${e.id}')" title="Editar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn btn-danger btn-icon btn-sm" onclick="openDelete('${e.id}')" title="Excluir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+/* CRUD ops */
+function saveExpense(){
+  const desc  = document.getElementById('f-desc').value.trim();
+  const value = parseFloat(document.getElementById('f-value').value);
+  const date  = document.getElementById('f-date').value;
+  const card  = document.getElementById('f-card').value;
+  const cat   = document.getElementById('f-category').value;
+  const type  = document.getElementById('f-type').value;
+  const notes = document.getElementById('f-notes').value.trim();
+
+  if(!desc||!value||!date||!card||!cat){
+    toast('Preencha todos os campos obrigatórios', 'error'); return;
+  }
+
+  const entry = { desc, value, date, card, category:cat, type, notes };
+  if(type==='installment'){
+    entry.installCurr  = parseInt(document.getElementById('f-installCurr').value)||1;
+    entry.installTotal = parseInt(document.getElementById('f-installTotal').value)||2;
+  }
+
+  if(editingId){
+    const i = expenses.findIndex(e=>e.id===editingId);
+    expenses[i] = { ...expenses[i], ...entry };
+    toast('Gasto atualizado com sucesso', 'success');
+  } else {
+    expenses.unshift({ id:uid(), ...entry });
+    toast('Gasto adicionado com sucesso', 'success');
+  }
+  closeExpenseModal();
+  renderExpenseTable();
+  renderHomeRecent();
+  updateHomeKPIs();
+}
+
+function openEdit(id){
+  const e = expenses.find(x=>x.id===id);
+  if(!e) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = 'Editar Gasto';
+  document.getElementById('f-desc').value     = e.desc;
+  document.getElementById('f-value').value    = e.value;
+  document.getElementById('f-date').value     = e.date;
+  document.getElementById('f-card').value     = e.card;
+  document.getElementById('f-category').value = e.category;
+  document.getElementById('f-type').value     = e.type;
+  document.getElementById('f-notes').value    = e.notes||'';
+  if(e.type==='installment'){
+    document.getElementById('f-installCurr').value  = e.installCurr||1;
+    document.getElementById('f-installTotal').value = e.installTotal||2;
+    document.getElementById('installmentFields').style.display='block';
+  } else {
+    document.getElementById('installmentFields').style.display='none';
+  }
+  document.getElementById('expenseModal').classList.add('open');
+}
+
+function openDelete(id){
+  deletingId = id;
+  const e = expenses.find(x=>x.id===id);
+  document.getElementById('confirmName').textContent = e ? `"${e.desc}"` : 'este gasto';
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+function closeExpenseModal(){
+  document.getElementById('expenseModal').classList.remove('open');
+  editingId = null;
+  document.getElementById('modalTitle').textContent = 'Novo Gasto';
+  ['f-desc','f-value','f-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-date').value     = today();
+  document.getElementById('f-card').value     = '';
+  document.getElementById('f-category').value = '';
+  document.getElementById('f-type').value     = 'single';
+  document.getElementById('installmentFields').style.display='none';
+}
+
+/* modal bindings */
+document.getElementById('openAddModal').addEventListener('click',()=>{
+  closeExpenseModal();
+  document.getElementById('expenseModal').classList.add('open');
+});
+document.getElementById('quickAddBtn').addEventListener('click',()=>{
+  showView('expenses');
+  setTimeout(()=>{ closeExpenseModal(); document.getElementById('expenseModal').classList.add('open'); },100);
+});
+document.getElementById('closeModal').addEventListener('click', closeExpenseModal);
+document.getElementById('cancelModal').addEventListener('click', closeExpenseModal);
+document.getElementById('saveExpense').addEventListener('click', saveExpense);
+document.getElementById('uploadShortcut').addEventListener('click',()=> showView('upload'));
+
+document.getElementById('closeConfirm').addEventListener('click',()=> document.getElementById('confirmModal').classList.remove('open'));
+document.getElementById('cancelConfirm').addEventListener('click',()=> document.getElementById('confirmModal').classList.remove('open'));
+document.getElementById('doDelete').addEventListener('click',()=>{
+  expenses = expenses.filter(e=>e.id!==deletingId);
+  deletingId = null;
+  document.getElementById('confirmModal').classList.remove('open');
+  toast('Gasto excluído', 'success');
+  renderExpenseTable();
+  renderHomeRecent();
+  updateHomeKPIs();
+});
+
+/* close modals on overlay click */
+document.getElementById('expenseModal').addEventListener('click', e=>{
+  if(e.target===e.currentTarget) closeExpenseModal();
+});
+document.getElementById('confirmModal').addEventListener('click', e=>{
+  if(e.target===e.currentTarget) document.getElementById('confirmModal').classList.remove('open');
+});
+document.getElementById('reviewEditModal').addEventListener('click', e=>{
+  if(e.target===e.currentTarget) closeReviewEditModal();
+});
+
+/* installment toggle */
+document.getElementById('f-type').addEventListener('change', e=>{
+  document.getElementById('installmentFields').style.display = e.target.value==='installment'?'block':'none';
+});
+
+/* filters */
+document.getElementById('expSearch').addEventListener('input', e=>{
+  expFilter.search = e.target.value; renderExpenseTable();
+});
+document.getElementById('expCatFilter').addEventListener('change', e=>{
+  expFilter.cat = e.target.value; renderExpenseTable();
+});
+document.getElementById('expCardFilter').addEventListener('change', e=>{
+  expFilter.card = e.target.value; renderExpenseTable();
+});
+document.getElementById('clearFilters').addEventListener('click',()=>{
+  expFilter = {search:'',cat:'',card:''};
+  document.getElementById('expSearch').value    = '';
+  document.getElementById('expCatFilter').value = '';
+  document.getElementById('expCardFilter').value= '';
+  renderExpenseTable();
+});
+
+/* sort */
+document.querySelectorAll('th[data-sort]').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const col = th.dataset.sort;
+    if(expSort.col===col) expSort.dir = expSort.dir==='asc'?'desc':'asc';
+    else { expSort.col=col; expSort.dir='desc'; }
+    const icon = col==='value'?'↕':'↕';
+    document.querySelectorAll('.sort-icon').forEach(s=>s.textContent='↕');
+    th.querySelector('.sort-icon').textContent = expSort.dir==='asc'?'↑':'↓';
+    renderExpenseTable();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   HOME — KPIs & recent table
+═══════════════════════════════════════════════════════════════ */
+function updateHomeKPIs(){
+  const total = expenses.reduce((s,e)=>s+e.value,0);
+  document.getElementById('kpi-total').textContent = fmt(total);
+}
+
+function renderHomeRecent(){
+  const body = document.getElementById('homeRecentBody');
+  const recent = [...expenses].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+  body.innerHTML = recent.map(e=>`
+    <tr>
+      <td class="td-label td-mono">${fmtDate(e.date)}</td>
+      <td><span style="font-weight:500">${e.desc}</span>${typeBadge(e)}</td>
+      <td>${catBadge(e.category)}</td>
+      <td class="td-label">${e.card}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600">${fmt(e.value)}</td>
+    </tr>
+  `).join('');
+}
+
+/* mini bar chart */
+function renderMiniChart(){
+  const wrap = document.getElementById('miniChart');
+  const vals = [3200,3800,4200,3900,4820,5190];
+  const labels = ['mar','abr','mai','jun','ago','set*'];
+  const mx = Math.max(...vals);
+  wrap.innerHTML = vals.map((v,i)=>`
+    <div class="mini-bar ${i===4?'current':''}"
+         style="height:${Math.round((v/mx)*100)}%;position:relative"
+         title="${labels[i]}: ${fmt(v)}">
+    </div>
+  `).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FE-003 — UPLOAD SERVICE
+═══════════════════════════════════════════════════════════════ */
+let selectedFile = null;
+
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const sendBtn   = document.getElementById('sendBtn');
+
+dropZone.addEventListener('click',()=> fileInput.click());
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave',()=> dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+fileInput.addEventListener('change', e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); });
+document.getElementById('removeFile').addEventListener('click', e=>{ e.stopPropagation(); resetUpload(); });
+
+function handleFile(file){
+  const VALID = ['application/pdf'];
+  const valid = VALID.includes(file.type) || file.name.endsWith('.pdf');
+  if(!valid){ showUploadError('Arquivo inválido. Apenas PDFs são aceitos.'); return; }
+  if(file.size > 10 * 1024 * 1024){ showUploadError('Arquivo muito grande. Máximo: 10 MB.'); return; }
+
+  selectedFile = file;
+  hideUploadError();
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = formatSize(file.size);
+  document.getElementById('filePreview').style.display = 'block';
+  dropZone.classList.add('has-file');
+  document.getElementById('dropTitle').textContent = 'Arquivo selecionado';
+  document.getElementById('dropSub').textContent = 'Clique para trocar o arquivo';
+  sendBtn.disabled = false;
+}
+
+function formatSize(b){ return b>=1048576?`${(b/1048576).toFixed(1)} MB`:`${(b/1024).toFixed(0)} KB`; }
+
+function showUploadError(msg){
+  document.getElementById('uploadErrorMsg').textContent = msg;
+  document.getElementById('uploadError').style.display = 'block';
+}
+function hideUploadError(){ document.getElementById('uploadError').style.display='none'; }
+
+function resetUpload(){
+  selectedFile = null;
+  fileInput.value = '';
+  document.getElementById('filePreview').style.display = 'none';
+  dropZone.classList.remove('has-file');
+  document.getElementById('dropTitle').textContent = 'Arraste o PDF aqui';
+  document.getElementById('dropSub').textContent = 'ou clique para selecionar o arquivo';
+  sendBtn.disabled = true;
+  hideUploadError();
+  showStatusPanel('idle');
+}
+
+function showStatusPanel(state){
+  ['Idle','Processing','Success','Error'].forEach(s=>{
+    document.getElementById(`status${s}`).style.display='none';
+  });
+  document.getElementById(`status${state.charAt(0).toUpperCase()+state.slice(1)}`).style.display='block';
+
+  // Generate mock review transactions on success
+  if(state === 'success'){
+    const mockDescs = ['Amazon','Farmácia','Posto Shell','iFood','Cinema','Mercado','Gym','Spotify','Uber Eats','PagSeguro'];
+    const card = document.getElementById('uploadCard').value || 'Nubank';
+    reviewTransactions = [];
+    for(let i=0;i<6;i++){
+      const d = new Date(); d.setDate(d.getDate()-Math.floor(Math.random()*25));
+      reviewTransactions.push({
+        desc: mockDescs[i%mockDescs.length],
+        value: parseFloat((Math.random()*300+20).toFixed(2)),
+        date: d.toISOString().split('T')[0],
+        card: card,
+        category: CATEGORIES[Math.floor(Math.random()*CATEGORIES.length)]
+      });
+    }
+    renderReviewTable();
+  }
+}
+
+function setStep(id, state, sub){
+  const dot = document.getElementById(`s-${id}`);
+  const stEl = document.getElementById(`st-${id}`);
+  dot.className = `status-dot ${state}`;
+  stEl.textContent = sub;
+}
+
+sendBtn.addEventListener('click', ()=>{
+  if(!selectedFile) return;
+  const card = document.getElementById('uploadCard').value;
+  if(!card){ toast('Selecione o cartão antes de enviar', 'error'); return; }
+
+  sendBtn.disabled = true;
+  showStatusPanel('processing');
+
+  // Simulate multi-step upload
+  let pct = 0;
+  const fill = document.getElementById('progressFill');
+  const pctEl = document.getElementById('progressPct');
+
+  const steps = [
+    { id:'upload',   delay:800,  pct:30,  state:'done',    sub:'Enviado com sucesso' },
+    { id:'validate', delay:1200, pct:60,  state:'done',    sub:'Formato válido' },
+    { id:'extract',  delay:2200, pct:90,  state:'running', sub:'Lendo transações…' },
+    { id:'extract',  delay:3400, pct:100, state:'done',    sub:'Concluído' },
+    { id:'done',     delay:3600, pct:100, state:'done',    sub:'Fatura processada' },
+  ];
+
+  // Set all to pending
+  ['upload','validate','extract','done'].forEach(id=> setStep(id,'pending','Aguardando…'));
+  setStep('upload','running','Enviando arquivo…');
+
+  let animPct = 0;
+  const anim = setInterval(()=>{
+    animPct = Math.min(animPct+1, pct);
+    fill.style.width = animPct+'%';
+    pctEl.textContent = animPct+'%';
+  }, 40);
+
+  steps.forEach(step=>{
+    setTimeout(()=>{
+      pct = step.pct;
+      setStep(step.id, step.state, step.sub);
+    }, step.delay);
+  });
+
+  // Randomly succeed or succeed (always succeed in demo)
+  setTimeout(()=>{
+    clearInterval(anim);
+    fill.style.width = '100%';
+    const count = Math.floor(Math.random()*20)+8;
+    document.getElementById('extractCount').textContent = `${count} transações extraídas com sucesso`;
+    showStatusPanel('success');
+    toast('Fatura processada com sucesso!', 'success');
+  }, 3800);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   FE-004 — REVIEW TRANSACTIONS
+═══════════════════════════════════════════════════════════════ */
+function renderReviewTable(){
+  const body = document.getElementById('reviewTableBody');
+  const empty = document.getElementById('reviewEmpty');
+  const countEl = document.getElementById('reviewCount');
+  const totalEl = document.getElementById('reviewTotal');
+
+  const total = reviewTransactions.reduce((s,e)=>s+e.value,0);
+  countEl.textContent = reviewTransactions.length;
+  totalEl.textContent = fmt(total);
+
+  if(!reviewTransactions.length){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  body.innerHTML = reviewTransactions.map((e,i)=>`
+    <tr>
+      <td>
+        <span style="font-weight:500">${e.desc}</span>
+      </td>
+      <td>${catBadge(e.category)}</td>
+      <td style="font-family:var(--mono);font-weight:600;font-size:13px">${fmt(e.value)}</td>
+      <td>
+        <div class="td-actions">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="openReviewEdit(${i})" title="Editar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn btn-danger btn-icon btn-sm" onclick="removeReviewTransaction(${i})" title="Remover">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openReviewEdit(index){
+  const e = reviewTransactions[index];
+  if(!e) return;
+  reviewEditingId = index;
+  document.getElementById('r-desc').value = e.desc;
+  document.getElementById('r-value').value = e.value;
+  document.getElementById('r-category').value = e.category;
+  document.getElementById('reviewEditModal').classList.add('open');
+}
+
+function closeReviewEditModal(){
+  document.getElementById('reviewEditModal').classList.remove('open');
+  reviewEditingId = null;
+  document.getElementById('r-desc').value = '';
+  document.getElementById('r-value').value = '';
+  document.getElementById('r-category').value = '';
+}
+
+function saveReviewEdit(){
+  const desc = document.getElementById('r-desc').value.trim();
+  const value = parseFloat(document.getElementById('r-value').value);
+  const category = document.getElementById('r-category').value;
+
+  if(!desc||!value||!category){
+    toast('Preencha todos os campos obrigatórios', 'error'); return;
+  }
+
+  if(reviewEditingId !== null){
+    reviewTransactions[reviewEditingId] = {
+      ...reviewTransactions[reviewEditingId],
+      desc, value, category
+    };
+    toast('Transação atualizada', 'success');
+    closeReviewEditModal();
+    renderReviewTable();
+  }
+}
+
+function removeReviewTransaction(index){
+  reviewTransactions.splice(index, 1);
+  toast('Transação removida', 'info');
+  renderReviewTable();
+}
+
+function confirmReviewImport(){
+  if(!reviewTransactions.length){
+    toast('Nenhuma transação para importar', 'error'); return;
+  }
+
+  // Add all reviewed transactions to main expenses
+  reviewTransactions.forEach(e => {
+    expenses.unshift({
+      id: uid(),
+      desc: e.desc,
+      value: e.value,
+      date: e.date || today(),
+      card: e.card || 'Nubank',
+      category: e.category,
+      type: 'single',
+      notes: 'Importado via fatura'
+    });
+  });
+
+  toast(`${reviewTransactions.length} transações importadas com sucesso!`, 'success');
+  reviewTransactions = [];
+  renderReviewTable();
+  renderExpenseTable();
+  renderHomeRecent();
+  updateHomeKPIs();
+  showView('expenses');
+}
+
+function cancelReviewImport(){
+  reviewTransactions = [];
+  renderReviewTable();
+  toast('Importação cancelada', 'info');
+  showView('upload');
+}
+
+/* Review modal bindings */
+document.getElementById('closeReviewEdit').addEventListener('click', closeReviewEditModal);
+document.getElementById('cancelReviewEdit').addEventListener('click', closeReviewEditModal);
+document.getElementById('saveReviewEdit').addEventListener('click', saveReviewEdit);
+document.getElementById('confirmReview').addEventListener('click', confirmReviewImport);
+document.getElementById('cancelReview').addEventListener('click', cancelReviewImport);
+document.getElementById('goToReviewBtn').addEventListener('click', () => showView('review'));
+
+/* ═══════════════════════════════════════════════════════════════
+   FE-005 — SPREADSHEET VIEW
+═══════════════════════════════════════════════════════════════ */
+function populateSheetFilters(){
+  const cardSel = document.getElementById('sheetCard');
+  const catSel = document.getElementById('sheetCategory');
+  cardSel.innerHTML = '<option value="">Todos os cartões</option>' +
+    CARDS.map(c=>`<option>${c}</option>`).join('');
+  catSel.innerHTML = '<option value="">Todas as categorias</option>' +
+    CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+}
+
+function getSheetFiltered(){
+  return expenses.filter(e=>{
+    if(sheetFilter.month){
+      const d = new Date(e.date);
+      if(d.getMonth()+1 !== parseInt(sheetFilter.month)) return false;
+    }
+    if(sheetFilter.year){
+      const d = new Date(e.date);
+      if(d.getFullYear() !== parseInt(sheetFilter.year)) return false;
+    }
+    if(sheetFilter.card && e.card !== sheetFilter.card) return false;
+    if(sheetFilter.category && e.category !== sheetFilter.category) return false;
+    if(sheetFilter.type && e.type !== sheetFilter.type) return false;
+    if(sheetFilter.search && !e.desc.toLowerCase().includes(sheetFilter.search.toLowerCase())) return false;
+    return true;
+  }).sort((a,b)=>{
+    let cmp = 0;
+    if(sheetSort.col==='date')  cmp = a.date.localeCompare(b.date);
+    if(sheetSort.col==='value') cmp = a.value - b.value;
+    return sheetSort.dir==='asc' ? cmp : -cmp;
+  });
+}
+
+function renderSheetTable(){
+  const data = getSheetFiltered();
+  const body = document.getElementById('sheetTableBody');
+  const empty = document.getElementById('sheetEmpty');
+
+  const total = data.reduce((s,e)=>s+e.value,0);
+  const count = data.length;
+  const avg = count ? total/count : 0;
+  const max = count ? Math.max(...data.map(e=>e.value)) : 0;
+
+  document.getElementById('sheetTotal').textContent = fmt(total);
+  document.getElementById('sheetCount').textContent = count;
+  document.getElementById('sheetAvg').textContent = fmt(avg);
+  document.getElementById('sheetMax').textContent = fmt(max);
+  document.getElementById('sheetResults').textContent = count;
+
+  if(!data.length){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  body.innerHTML = data.map(e=>`
+    <tr>
+      <td class="td-label td-mono">${fmtDate(e.date)}</td>
+      <td>
+        <span style="font-weight:500">${e.desc}</span>
+        ${e.notes?`<div style="font-size:11px;color:var(--text-3);margin-top:1px">${e.notes}</div>`:''}
+      </td>
+      <td>${catBadge(e.category)}</td>
+      <td class="td-label">${e.card}</td>
+      <td>${e.type==='fixed'?'<span class="badge c-red" style="font-size:9px">FIXO</span>':e.type==='installment'?`<span class="badge c-amber" style="font-size:9px">${e.installCurr}/${e.installTotal}x</span>`:'<span class="badge" style="font-size:9px">ÚNICO</span>'}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;font-size:13px">${fmt(e.value)}</td>
+    </tr>
+  `).join('');
+}
+
+/* Sheet filter bindings */
+document.getElementById('sheetMonth').addEventListener('change', e=>{
+  sheetFilter.month = e.target.value; renderSheetTable();
+});
+document.getElementById('sheetYear').addEventListener('change', e=>{
+  sheetFilter.year = e.target.value; renderSheetTable();
+});
+document.getElementById('sheetCard').addEventListener('change', e=>{
+  sheetFilter.card = e.target.value; renderSheetTable();
+});
+document.getElementById('sheetCategory').addEventListener('change', e=>{
+  sheetFilter.category = e.target.value; renderSheetTable();
+});
+document.getElementById('sheetType').addEventListener('change', e=>{
+  sheetFilter.type = e.target.value; renderSheetTable();
+});
+document.getElementById('sheetSearch').addEventListener('input', e=>{
+  sheetFilter.search = e.target.value; renderSheetTable();
+});
+document.getElementById('clearSheetFilters').addEventListener('click',()=>{
+  sheetFilter = { month:'', year:'', card:'', category:'', type:'', search:'' };
+  document.getElementById('sheetMonth').value = '';
+  document.getElementById('sheetYear').value = '';
+  document.getElementById('sheetCard').value = '';
+  document.getElementById('sheetCategory').value = '';
+  document.getElementById('sheetType').value = '';
+  document.getElementById('sheetSearch').value = '';
+  renderSheetTable();
+});
+
+/* Sheet sort */
+document.querySelectorAll('#view-spreadsheet th[data-sort]').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const col = th.dataset.sort;
+    if(sheetSort.col===col) sheetSort.dir = sheetSort.dir==='asc'?'desc':'asc';
+    else { sheetSort.col=col; sheetSort.dir='desc'; }
+    document.querySelectorAll('#view-spreadsheet .sort-icon').forEach(s=>s.textContent='↕');
+    th.querySelector('.sort-icon').textContent = sheetSort.dir==='asc'?'↑':'↓';
+    renderSheetTable();
+  });
+});
+
+/* Export functionality */
+document.getElementById('exportSheet').addEventListener('click',()=>{
+  const data = getSheetFiltered();
+  if(!data.length){
+    toast('Nenhum dado para exportar', 'error'); return;
+  }
+
+  const csv = [
+    ['Data','Descrição','Categoria','Cartão','Tipo','Valor'].join(','),
+    ...data.map(e=>[
+      fmtDate(e.date),
+      `"${e.desc}"`,
+      e.category,
+      e.card,
+      e.type,
+      e.value.toFixed(2)
+    ].join(','))
+  ].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `fintrack-export-${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
+  toast('Arquivo CSV exportado com sucesso!', 'success');
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   FE-006 — CARD VIEW
+═══════════════════════════════════════════════════════════════ */
+function populateCardCategoryFilter(){
+  const catSel = document.getElementById('cardCategory');
+  catSel.innerHTML = '<option value="">Todas as categorias</option>' +
+    CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+}
+
+function populateTimelineFilters(){
+  const catSel = document.getElementById('timelineCategory');
+  const cardSel = document.getElementById('timelineCard');
+  catSel.innerHTML = '<option value="">Todas as categorias</option>' +
+    CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+  cardSel.innerHTML = '<option value="">Todos os cartões</option>' +
+    CARDS.map(c=>`<option>${c}</option>`).join('');
+}
+
+function getCardFiltered(){
+  return expenses.filter(e=>{
+    if(cardFilter.card && e.card !== cardFilter.card) return false;
+    if(cardFilter.month){
+      const d = new Date(e.date);
+      if(d.getMonth()+1 !== parseInt(cardFilter.month)) return false;
+    }
+    if(cardFilter.year){
+      const d = new Date(e.date);
+      if(d.getFullYear() !== parseInt(cardFilter.year)) return false;
+    }
+    if(cardFilter.category && e.category !== cardFilter.category) return false;
+    if(cardFilter.search && !e.desc.toLowerCase().includes(cardFilter.search.toLowerCase())) return false;
+    return true;
+  }).sort((a,b)=>{
+    let cmp = 0;
+    if(cardSort.col==='date')  cmp = a.date.localeCompare(b.date);
+    if(cardSort.col==='value') cmp = a.value - b.value;
+    return cardSort.dir==='asc' ? cmp : -cmp;
+  });
+}
+
+function renderCardView(){
+  const data = getCardFiltered();
+  const body = document.getElementById('cardTableBody');
+  const empty = document.getElementById('cardEmpty');
+
+  const total = data.reduce((s,e)=>s+e.value,0);
+  const count = data.length;
+  const avg = count ? total/count : 0;
+  const max = count ? Math.max(...data.map(e=>e.value)) : 0;
+  const maxItem = count ? data.find(e=>e.value===max) : null;
+
+  document.getElementById('cardTotal').textContent = fmt(total);
+  document.getElementById('cardCount').textContent = count;
+  document.getElementById('cardAvg').textContent = fmt(avg);
+  document.getElementById('cardMax').textContent = fmt(max);
+  document.getElementById('cardMaxDesc').textContent = maxItem ? maxItem.desc : '—';
+  document.getElementById('cardName').textContent = cardFilter.card || 'Todos os cartões';
+  document.getElementById('cardResults').textContent = count;
+
+  if(!data.length){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  body.innerHTML = data.map(e=>`
+    <tr>
+      <td class="td-label td-mono">${fmtDate(e.date)}</td>
+      <td>
+        <span style="font-weight:500">${e.desc}</span>
+        ${e.notes?`<div style="font-size:11px;color:var(--text-3);margin-top:1px">${e.notes}</div>`:''}
+      </td>
+      <td>${catBadge(e.category)}</td>
+      <td>${e.type==='fixed'?'<span class="badge c-red" style="font-size:9px">FIXO</span>':e.type==='installment'?`<span class="badge c-amber" style="font-size:9px">${e.installCurr}/${e.installTotal}x</span>`:'<span class="badge" style="font-size:9px">ÚNICO</span>'}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;font-size:13px">${fmt(e.value)}</td>
+    </tr>
+  `).join('');
+}
+
+/* Card filter bindings */
+document.getElementById('cardMonth').addEventListener('change', e=>{
+  cardFilter.month = e.target.value; renderCardView();
+});
+document.getElementById('cardYear').addEventListener('change', e=>{
+  cardFilter.year = e.target.value; renderCardView();
+});
+document.getElementById('cardCategory').addEventListener('change', e=>{
+  cardFilter.category = e.target.value; renderCardView();
+});
+document.getElementById('cardSearch').addEventListener('input', e=>{
+  cardFilter.search = e.target.value; renderCardView();
+});
+document.getElementById('clearCardFilters').addEventListener('click',()=>{
+  cardFilter = { card:cardFilter.card, month:'', year:'', category:'', search:'' };
+  document.getElementById('cardMonth').value = '';
+  document.getElementById('cardYear').value = '';
+  document.getElementById('cardCategory').value = '';
+  document.getElementById('cardSearch').value = '';
+  renderCardView();
+});
+
+/* Card sort */
+document.querySelectorAll('#view-cardview th[data-sort]').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const col = th.dataset.sort;
+    if(cardSort.col===col) cardSort.dir = cardSort.dir==='asc'?'desc':'asc';
+    else { cardSort.col=col; cardSort.dir='desc'; }
+    document.querySelectorAll('#view-cardview .sort-icon').forEach(s=>s.textContent='↕');
+    th.querySelector('.sort-icon').textContent = cardSort.dir==='asc'?'↑':'↓';
+    renderCardView();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   FE-007 — REPORTS
+═══════════════════════════════════════════════════════════════ */
+// Report type config toggle
+document.getElementById('reportType').addEventListener('change', e=>{
+  const type = e.target.value;
+  document.getElementById('reportMonthConfig').style.display = type==='monthly'?'block':'none';
+  document.getElementById('reportYearConfig').style.display = type!=='custom'?'block':'none';
+  document.getElementById('reportCustomConfig').style.display = type==='custom'?'block':'none';
+  document.getElementById('reportCustomConfigEnd').style.display = type==='custom'?'block':'none';
+});
+
+function getReportData(){
+  const type = document.getElementById('reportType').value;
+  let filtered = [];
+
+  if(type === 'monthly'){
+    const month = parseInt(document.getElementById('reportMonth').value);
+    const year = parseInt(document.getElementById('reportYear').value);
+    filtered = expenses.filter(e=>{
+      const d = new Date(e.date);
+      return d.getMonth()+1 === month && d.getFullYear() === year;
+    });
+  } else if(type === 'annual'){
+    const year = parseInt(document.getElementById('reportYear').value);
+    filtered = expenses.filter(e=>{
+      const d = new Date(e.date);
+      return d.getFullYear() === year;
+    });
+  } else {
+    const start = document.getElementById('reportStartDate').value;
+    const end = document.getElementById('reportEndDate').value;
+    if(start && end){
+      filtered = expenses.filter(e=> e.date >= start && e.date <= end);
+    }
+  }
+
+  return filtered;
+}
+
+function generateReport(){
+  const data = getReportData();
+  if(!data.length){
+    toast('Nenhum dado encontrado para o período selecionado', 'error'); return;
+  }
+
+  const type = document.getElementById('reportType').value;
+  const month = document.getElementById('reportMonth').value;
+  const year = document.getElementById('reportYear').value;
+  const months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  let periodText = '';
+  if(type === 'monthly') periodText = `${months[month-1]} de ${year}`;
+  else if(type === 'annual') periodText = `Ano de ${year}`;
+  else periodText = `Período personalizado`;
+
+  // Calculate summary
+  const total = data.reduce((s,e)=>s+e.value,0);
+  const count = data.length;
+  const avg = count ? total/count : 0;
+
+  // By category
+  const byCategory = data.reduce((acc,e)=>{
+    acc[e.category] = (acc[e.category]||0) + e.value;
+    return acc;
+  }, {});
+
+  // By card
+  const byCard = data.reduce((acc,e)=>{
+    acc[e.card] = (acc[e.card]||0) + e.value;
+    return acc;
+  }, {});
+
+  // Future indicators
+  const future = data.filter(e=>e.type==='installment').reduce((s,e)=>s+e.value,0);
+  const fixed = data.filter(e=>e.type==='fixed').reduce((s,e)=>s+e.value,0);
+
+  reportData = { data, total, count, avg, byCategory, byCard, future, fixed, periodText };
+
+  // Update UI
+  document.getElementById('reportPeriod').textContent = periodText;
+  document.getElementById('reportTotal').textContent = fmt(total);
+  document.getElementById('reportCount').textContent = count;
+  document.getElementById('reportAvg').textContent = fmt(avg);
+  document.getElementById('reportFuture').textContent = fmt(future);
+  document.getElementById('reportFixed').textContent = fmt(fixed);
+
+  // Render categories
+  const catHtml = Object.entries(byCategory)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([cat,val])=>`
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-soft)">
+        <span style="font-size:12px">${cat}</span>
+        <span style="font-size:12px;font-weight:600;font-family:var(--mono)">${fmt(val)}</span>
+      </div>
+    `).join('');
+  document.getElementById('reportCategories').innerHTML = catHtml;
+
+  // Render cards
+  const cardHtml = Object.entries(byCard)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([card,val])=>`
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-soft)">
+        <span style="font-size:12px">${card}</span>
+        <span style="font-size:12px;font-weight:600;font-family:var(--mono)">${fmt(val)}</span>
+      </div>
+    `).join('');
+  document.getElementById('reportCards').innerHTML = cardHtml;
+
+  document.getElementById('reportEmpty').style.display = 'none';
+  document.getElementById('reportPreview').style.display = 'block';
+  toast('Relatório gerado com sucesso!', 'success');
+}
+
+function downloadReportPdf(){
+  if(!reportData) return;
+
+  // Get the report content area
+  const element = document.getElementById('reportContent');
+  if(!element){
+    toast('Erro ao gerar PDF', 'error'); return;
+  }
+
+  const opt = {
+    margin:       10,
+    filename:     `relatorio-financeiro-${new Date().toISOString().split('T')[0]}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f1117' },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  // Show loading state
+  const btn = document.getElementById('downloadPdf');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = 'Gerando PDF...';
+  btn.disabled = true;
+
+  html2pdf().set(opt).from(element).save().then(() => {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    toast('PDF gerado com sucesso!', 'success');
+  }).catch(err => {
+    console.error('PDF generation error:', err);
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    toast('Erro ao gerar PDF', 'error');
+  });
+}
+
+document.getElementById('generateReport').addEventListener('click', generateReport);
+document.getElementById('downloadPdf').addEventListener('click', downloadReportPdf);
+
+/* ═══════════════════════════════════════════════════════════════
+   FE-008 — TIMELINE
+═══════════════════════════════════════════════════════════════ */
+function getTimelineData(){
+  const period = parseInt(timelineFilter.period);
+  const now = new Date();
+  const startDate = new Date(now.getFullYear(), now.getMonth() - period + 1, 1);
+
+  return expenses.filter(e=>{
+    const d = new Date(e.date);
+    if(d < startDate) return false;
+    if(timelineFilter.category && e.category !== timelineFilter.category) return false;
+    if(timelineFilter.card && e.card !== timelineFilter.card) return false;
+    if(timelineFilter.type && e.type !== timelineFilter.type) return false;
+    return true;
+  });
+}
+
+function groupByMonth(data){
+  const grouped = {};
+  const now = new Date();
+  const period = parseInt(timelineFilter.period);
+
+  for(let i = period - 1; i >= 0; i--){
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    grouped[key] = { total: 0, count: 0, label: d.toLocaleDateString('pt-BR',{month:'short'}) };
+  }
+
+  data.forEach(e=>{
+    const d = new Date(e.date);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(grouped[key]){
+      grouped[key].total += e.value;
+      grouped[key].count++;
+    }
+  });
+
+  return Object.values(grouped);
+}
+
+function renderTimeline(){
+  const data = getTimelineData();
+  const monthlyData = groupByMonth(data);
+
+  const total = data.reduce((s,e)=>s+e.value,0);
+  const avg = monthlyData.length ? total/monthlyData.length : 0;
+  const maxMonth = monthlyData.reduce((max,m)=>m.total>max.total?m:max, monthlyData[0] || {total:0,label:'—'});
+  const values = monthlyData.map(m=>m.total).filter(v=>v>0);
+  const trend = values.length >= 2 ?
+    (values[values.length-1] > values[values.length-2] ? '↗ Alta' : values[values.length-1] < values[values.length-2] ? '↘ Baixa' : '→ Estável') :
+    '—';
+
+  document.getElementById('timelineTotal').textContent = fmt(total);
+  document.getElementById('timelineAvg').textContent = fmt(avg);
+  document.getElementById('timelineMax').textContent = fmt(maxMonth.total);
+  document.getElementById('timelineMaxMonth').textContent = maxMonth.label;
+  document.getElementById('timelineTrend').textContent = trend;
+
+  const periodLabels = {6:'Últimos 6 meses',12:'Últimos 12 meses',24:'Últimos 24 meses'};
+  document.getElementById('timelinePeriodLabel').textContent = periodLabels[timelineFilter.period] || 'Período selecionado';
+
+  // Render chart
+  const chart = document.getElementById('timelineChart');
+  const maxValue = Math.max(...monthlyData.map(m=>m.total), 1);
+
+  chart.innerHTML = monthlyData.map(m=>`
+    <div class="timeline-bar" style="height:${Math.max((m.total/maxValue)*100,4)}%;background:${m.total>0?'var(--accent)':'var(--border)'}"
+         title="${m.label}: ${fmt(m.total)}">
+      <div class="timeline-bar-value">${m.total>0?fmt(m.total):''}</div>
+      <div class="timeline-bar-label">${m.label}</div>
+    </div>
+  `).join('');
+
+  // Category breakdown
+  const byCategory = data.reduce((acc,e)=>{
+    acc[e.category] = (acc[e.category]||0) + e.value;
+    return acc;
+  }, {});
+
+  const catBreakdown = document.getElementById('timelineCategoryBreakdown');
+  const catTotal = Object.values(byCategory).reduce((s,v)=>s+v,0);
+
+  catBreakdown.innerHTML = Object.entries(byCategory)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([cat,val])=>`
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:12px;font-weight:500">${cat}</span>
+            <span style="font-size:12px;font-weight:600;font-family:var(--mono)">${fmt(val)} (${Math.round((val/catTotal)*100)}%)</span>
+          </div>
+          <div style="height:6px;background:var(--bg);border-radius:99px;overflow:hidden">
+            <div style="height:100%;background:var(--accent);width:${(val/catTotal)*100}%"></div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+}
+
+// Timeline filter bindings
+document.getElementById('timelinePeriod').addEventListener('change', e=>{
+  timelineFilter.period = parseInt(e.target.value); renderTimeline();
+});
+document.getElementById('timelineCategory').addEventListener('change', e=>{
+  timelineFilter.category = e.target.value; renderTimeline();
+});
+document.getElementById('timelineCard').addEventListener('change', e=>{
+  timelineFilter.card = e.target.value; renderTimeline();
+});
+document.getElementById('timelineType').addEventListener('change', e=>{
+  timelineFilter.type = e.target.value; renderTimeline();
+});
+
+/* ─── INIT ───────────────────────────────────────────────────────────── */
+populateFilters();
+populateSheetFilters();
+populateCardCategoryFilter();
+populateTimelineFilters();
+
+// Card selector bindings
+if(document.getElementById('cardSelector')){
+  document.getElementById('cardSelector').querySelectorAll('.card-select-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.getElementById('cardSelector').querySelectorAll('.card-select-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      cardFilter.card = btn.dataset.card;
+      renderCardView();
+    });
+  });
+}
+
+renderExpenseTable();
+renderHomeRecent();
+updateHomeKPIs();
+renderMiniChart();
+renderReviewTable();
+renderSheetTable();
+renderCardView();
+renderTimeline();
+</script>
+</body>
+</html>
