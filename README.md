@@ -1,5 +1,4 @@
-# FinTrack — SPA Angular (FE-001 a FE-003)
-
+# FinTrack — SPA Angular
 ## Arquitetura
 
 Implementado como Single-Page Application seguindo a arquitetura Angular 18:
