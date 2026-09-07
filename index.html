@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- api-integration.js integrado diretamente no bundle abaixo -->
   <style>
     /* ─── DESIGN TOKENS ─────────────────────────────────────── */
     :root {
@@ -1833,26 +1834,140 @@ document.getElementById('f-date').value = today();
 document.getElementById('uploadMonth').value = now.getMonth()+1;
 
 /* ═══════════════════════════════════════════════════════════════
-   EXPENSE SERVICE — in-memory CRUD
+   API CONFIGURAÇÃO — Integração com BFF
+═══════════════════════════════════════════════════════════════ */
+const API_URL = 'https://fintrack-bff.vercel.app/api/v1';
+
+/* ═══════════════════════════════════════════════════════════════
+   API FUNCTIONS — Integração com BFF
+═══════════════════════════════════════════════════════════════ */
+async function loadExpensesFromAPI() {
+  try {
+    const response = await fetch(`${API_URL}/expenses`);
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    
+    // Mapear dados da API para o formato local
+    expenses = (data.items || []).map(item => ({
+      id: item.id,
+      desc: item.descricao,
+      value: parseFloat(item.valor_parcela),
+      date: item.data,
+      card: item.cartao_nome,
+      category: item.categoria,
+      type: item.tipo === 'parcelado' ? 'installment' : item.tipo === 'fixo' ? 'fixed' : 'single',
+      installCurr: item.parcela_atual,
+      installTotal: item.total_parcelas,
+      notes: item.observacao || ''
+    }));
+
+    // Sincronizar também em window.expenses (usado por api-integration.js externo)
+    window.expenses = expenses;
+
+    // Repopular filtros com cartões reais
+    populateFilters();
+    populateSheetFilters();
+    populateCardCategoryFilter();
+    populateTimelineFilters();
+    
+    renderExpenseTable();
+    renderHomeRecent();
+  } catch (error) {
+    console.error('Erro ao carregar gastos:', error);
+    toast('Erro ao carregar dados da API', 'error');
+  }
+}
+
+async function saveExpenseToAPI(expenseData) {
+  try {
+    // Mapear formato local para formato da API
+    const apiData = {
+      data: expenseData.date,
+      cartao_nome: expenseData.card,
+      categoria: expenseData.category,
+      descricao: expenseData.desc,
+      valor_parcela: expenseData.value,
+      tipo: expenseData.type === 'installment' ? 'parcelado' : expenseData.type === 'fixed' ? 'fixo' : 'normal',
+      parcela_atual: expenseData.installCurr || 1,
+      total_parcelas: expenseData.installTotal || 1,
+      origem: 'manual',
+      observacao: expenseData.notes || ''
+    };
+    
+    const response = await fetch(`${API_URL}/expenses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(apiData)
+    });
+    
+    if (!response.ok) throw new Error('Erro ao salvar gasto');
+    
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Erro ao salvar gasto:', error);
+    throw error;
+  }
+}
+
+async function updateExpenseInAPI(id, expenseData) {
+  try {
+    const apiData = {
+      data: expenseData.date,
+      cartao_nome: expenseData.card,
+      categoria: expenseData.category,
+      descricao: expenseData.desc,
+      valor_parcela: expenseData.value,
+      tipo: expenseData.type === 'installment' ? 'parcelado' : expenseData.type === 'fixed' ? 'fixo' : 'normal',
+      parcela_atual: expenseData.installCurr || 1,
+      total_parcelas: expenseData.installTotal || 1,
+      observacao: expenseData.notes || ''
+    };
+    
+    const response = await fetch(`${API_URL}/expenses/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(apiData)
+    });
+    
+    if (!response.ok) throw new Error('Erro ao atualizar gasto');
+    
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Erro ao atualizar gasto:', error);
+    throw error;
+  }
+}
+
+async function deleteExpenseFromAPI(id) {
+  try {
+    const response = await fetch(`${API_URL}/expenses/${id}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) throw new Error('Erro ao deletar gasto');
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao deletar gasto:', error);
+    throw error;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EXPENSE SERVICE — Integração com API BFF
 ═══════════════════════════════════════════════════════════════ */
 const CATEGORIES = ['Alimentação','Transporte','Moradia','Saúde','Lazer','Educação','Tecnologia','Vestuário','Assinatura','Outros'];
-const CARDS = ['Nubank','Itaú','Bradesco','Inter','C6 Bank','Dinheiro'];
+// CARDS é derivado dinamicamente dos dados carregados da API
+function getUniqueCards(){ return [...new Set(expenses.map(e=>e.card))].filter(Boolean).sort(); }
 
-// Seed data
-let expenses = [
-  {id:uid(), desc:'Supermercado Extra',       value:320.50,  date:'2026-08-28', card:'Nubank',    category:'Alimentação',  type:'single',     notes:''},
-  {id:uid(), desc:'Uber',                      value:28.90,   date:'2026-08-27', card:'Itaú',      category:'Transporte',   type:'single',     notes:''},
-  {id:uid(), desc:'Netflix',                   value:44.90,   date:'2026-08-25', card:'Nubank',    category:'Assinatura',   type:'fixed',      notes:''},
-  {id:uid(), desc:'MacBook Pro M3',            value:1200.00, date:'2026-08-26', card:'Nubank',    category:'Tecnologia',   type:'installment', installCurr:1, installTotal:12, notes:''},
-  {id:uid(), desc:'Farmácia',                  value:67.30,   date:'2026-08-24', card:'Bradesco',  category:'Saúde',        type:'single',     notes:''},
-  {id:uid(), desc:'Aluguel',                   value:1800.00, date:'2026-08-05', card:'Dinheiro',  category:'Moradia',      type:'fixed',      notes:''},
-  {id:uid(), desc:'iFood',                     value:52.00,   date:'2026-08-23', card:'Inter',     category:'Alimentação',  type:'single',     notes:''},
-  {id:uid(), desc:'Academia',                  value:89.90,   date:'2026-08-01', card:'Nubank',    category:'Saúde',        type:'fixed',      notes:''},
-  {id:uid(), desc:'Posto de Gasolina',         value:180.00,  date:'2026-08-20', card:'C6 Bank',   category:'Transporte',   type:'single',     notes:''},
-  {id:uid(), desc:'Curso de Programação',      value:199.00,  date:'2026-08-15', card:'Nubank',    category:'Educação',     type:'installment', installCurr:2, installTotal:6, notes:''},
-  {id:uid(), desc:'Restaurante',               value:95.50,   date:'2026-08-18', card:'Itaú',      category:'Alimentação',  type:'single',     notes:'Jantar'},
-  {id:uid(), desc:'Spotify',                   value:21.90,   date:'2026-08-10', card:'Nubank',    category:'Assinatura',   type:'fixed',      notes:''},
-];
+// Dados carregados da API BFF (sem mock)
+let expenses = [];
 
 let expSort = { col:'date', dir:'desc' };
 let expFilter = { search:'', cat:'', card:'' };
@@ -1883,8 +1998,9 @@ function populateFilters(){
   const cardSel = document.getElementById('expCardFilter');
   catSel.innerHTML = '<option value="">Todas as categorias</option>' +
     CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+  const cards = getUniqueCards().length ? getUniqueCards() : [];
   cardSel.innerHTML = '<option value="">Todos os cartões</option>' +
-    CARDS.map(c=>`<option>${c}</option>`).join('');
+    cards.map(c=>`<option>${c}</option>`).join('');
 }
 
 function populateCardSelector(){
@@ -1986,18 +2102,24 @@ function saveExpense(){
     entry.installTotal = parseInt(document.getElementById('f-installTotal').value)||2;
   }
 
-  if(editingId){
-    const i = expenses.findIndex(e=>e.id===editingId);
-    expenses[i] = { ...expenses[i], ...entry };
-    toast('Gasto atualizado com sucesso', 'success');
-  } else {
-    expenses.unshift({ id:uid(), ...entry });
-    toast('Gasto adicionado com sucesso', 'success');
-  }
-  closeExpenseModal();
-  renderExpenseTable();
-  renderHomeRecent();
-  updateHomeKPIs();
+  // Usar API para salvar ou atualizar
+  const apiCall = editingId
+    ? updateExpenseInAPI(editingId, entry)
+    : saveExpenseToAPI(entry);
+
+  apiCall
+    .then(() => {
+      toast(editingId ? 'Gasto atualizado com sucesso!' : 'Gasto adicionado com sucesso!', 'success');
+      closeExpenseModal();
+      return loadExpensesFromAPI();
+    })
+    .then(() => {
+      updateHomeKPIs();
+    })
+    .catch((error) => {
+      toast('Erro ao salvar gasto na API', 'error');
+      console.error(error);
+    });
 }
 
 function openEdit(id){
@@ -2058,13 +2180,20 @@ document.getElementById('uploadShortcut').addEventListener('click',()=> showView
 document.getElementById('closeConfirm').addEventListener('click',()=> document.getElementById('confirmModal').classList.remove('open'));
 document.getElementById('cancelConfirm').addEventListener('click',()=> document.getElementById('confirmModal').classList.remove('open'));
 document.getElementById('doDelete').addEventListener('click',()=>{
-  expenses = expenses.filter(e=>e.id!==deletingId);
+  const id = deletingId;
   deletingId = null;
   document.getElementById('confirmModal').classList.remove('open');
-  toast('Gasto excluído', 'success');
-  renderExpenseTable();
-  renderHomeRecent();
-  updateHomeKPIs();
+  deleteExpenseFromAPI(id)
+    .then(() => {
+      toast('Gasto excluído', 'success');
+      return loadExpensesFromAPI();
+    })
+    .then(() => {
+      updateHomeKPIs();
+    })
+    .catch(() => {
+      toast('Erro ao excluir gasto', 'error');
+    });
 });
 
 /* close modals on overlay click */
@@ -2117,9 +2246,36 @@ document.querySelectorAll('th[data-sort]').forEach(th=>{
 /* ═══════════════════════════════════════════════════════════════
    HOME — KPIs & recent table
 ═══════════════════════════════════════════════════════════════ */
-function updateHomeKPIs(){
-  const total = expenses.reduce((s,e)=>s+e.value,0);
-  document.getElementById('kpi-total').textContent = fmt(total);
+async function updateHomeKPIs(){
+  try {
+    const now = new Date();
+    const response = await fetch(`${API_URL}/dashboard/summary?month=${now.getMonth()+1}&year=${now.getFullYear()}`);
+    const data = await response.json();
+
+    if(data.total_month !== undefined)
+      document.getElementById('kpi-total').textContent = fmt(data.total_month);
+
+    // KPIs adicionais se existirem no HTML
+    const kpiTopCard = document.getElementById('kpi-top-card');
+    if(kpiTopCard && data.top_card) kpiTopCard.textContent = `${data.top_card} (${data.top_card_pct}%)`;
+
+    const kpiBiggest = document.getElementById('kpi-biggest');
+    if(kpiBiggest && data.biggest_expense) kpiBiggest.textContent = fmt(data.biggest_expense.valor_parcela);
+
+    const kpiFuture = document.getElementById('kpi-future');
+    if(kpiFuture && data.future_installments !== undefined) kpiFuture.textContent = fmt(data.future_installments);
+
+    const kpiFixed = document.getElementById('kpi-fixed');
+    if(kpiFixed && data.fixed_expenses !== undefined) kpiFixed.textContent = fmt(data.fixed_expenses);
+
+    const kpiForecast = document.getElementById('kpi-forecast');
+    if(kpiForecast && data.next_month_forecast !== undefined) kpiForecast.textContent = fmt(data.next_month_forecast);
+  } catch(err) {
+    // Fallback: calcular localmente a partir dos dados já carregados
+    const total = expenses.reduce((s,e)=>s+e.value,0);
+    document.getElementById('kpi-total').textContent = fmt(total);
+    console.error('Erro ao buscar KPIs da API:', err);
+  }
 }
 
 function renderHomeRecent(){
@@ -2136,18 +2292,44 @@ function renderHomeRecent(){
   `).join('');
 }
 
-/* mini bar chart */
-function renderMiniChart(){
+/* mini bar chart — dados reais da API */
+async function renderMiniChart(){
   const wrap = document.getElementById('miniChart');
-  const vals = [3200,3800,4200,3900,4820,5190];
-  const labels = ['mar','abr','mai','jun','ago','set*'];
-  const mx = Math.max(...vals);
-  wrap.innerHTML = vals.map((v,i)=>`
-    <div class="mini-bar ${i===4?'current':''}"
-         style="height:${Math.round((v/mx)*100)}%;position:relative"
-         title="${labels[i]}: ${fmt(v)}">
-    </div>
-  `).join('');
+  if(!wrap) return;
+  try {
+    const response = await fetch(`${API_URL}/analytics/monthly-trend?months=6`);
+    const data = await response.json();
+    const items = data.items || [];
+    if(!items.length){ wrap.innerHTML = ''; return; }
+    const mx = Math.max(...items.map(m=>m.total||0), 1);
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    wrap.innerHTML = items.map(m=>`
+      <div class="mini-bar ${m.month===currentKey?'current':''}"
+           style="height:${Math.round(((m.total||0)/mx)*100)}%;position:relative"
+           title="${m.label||m.month}: ${fmt(m.total||0)}">
+      </div>
+    `).join('');
+  } catch(err) {
+    // Fallback: barras baseadas nos dados já carregados
+    const now = new Date();
+    const buckets = [];
+    for(let i=5;i>=0;i--){
+      const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const label = d.toLocaleDateString('pt-BR',{month:'short'});
+      const total = expenses.filter(e=>e.date.startsWith(key)).reduce((s,e)=>s+e.value,0);
+      buckets.push({key, label, total});
+    }
+    const mx = Math.max(...buckets.map(b=>b.total), 1);
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    wrap.innerHTML = buckets.map(b=>`
+      <div class="mini-bar ${b.key===currentKey?'current':''}"
+           style="height:${Math.round((b.total/mx)*100)}%;position:relative"
+           title="${b.label}: ${fmt(b.total)}">
+      </div>
+    `).join('');
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2213,21 +2395,8 @@ function showStatusPanel(state){
   });
   document.getElementById(`status${state.charAt(0).toUpperCase()+state.slice(1)}`).style.display='block';
 
-  // Generate mock review transactions on success
+  // reviewTransactions já foi populado com dados reais da API no sendBtn handler
   if(state === 'success'){
-    const mockDescs = ['Amazon','Farmácia','Posto Shell','iFood','Cinema','Mercado','Gym','Spotify','Uber Eats','PagSeguro'];
-    const card = document.getElementById('uploadCard').value || 'Nubank';
-    reviewTransactions = [];
-    for(let i=0;i<6;i++){
-      const d = new Date(); d.setDate(d.getDate()-Math.floor(Math.random()*25));
-      reviewTransactions.push({
-        desc: mockDescs[i%mockDescs.length],
-        value: parseFloat((Math.random()*300+20).toFixed(2)),
-        date: d.toISOString().split('T')[0],
-        card: card,
-        category: CATEGORIES[Math.floor(Math.random()*CATEGORIES.length)]
-      });
-    }
     renderReviewTable();
   }
 }
@@ -2239,54 +2408,79 @@ function setStep(id, state, sub){
   stEl.textContent = sub;
 }
 
-sendBtn.addEventListener('click', ()=>{
+sendBtn.addEventListener('click', async ()=>{
   if(!selectedFile) return;
   const card = document.getElementById('uploadCard').value;
+  const month = parseInt(document.getElementById('uploadMonth').value) || (new Date().getMonth()+1);
+  const year = parseInt(document.getElementById('uploadYear')?.value) || new Date().getFullYear();
   if(!card){ toast('Selecione o cartão antes de enviar', 'error'); return; }
 
   sendBtn.disabled = true;
   showStatusPanel('processing');
 
-  // Simulate multi-step upload
-  let pct = 0;
   const fill = document.getElementById('progressFill');
   const pctEl = document.getElementById('progressPct');
 
-  const steps = [
-    { id:'upload',   delay:800,  pct:30,  state:'done',    sub:'Enviado com sucesso' },
-    { id:'validate', delay:1200, pct:60,  state:'done',    sub:'Formato válido' },
-    { id:'extract',  delay:2200, pct:90,  state:'running', sub:'Lendo transações…' },
-    { id:'extract',  delay:3400, pct:100, state:'done',    sub:'Concluído' },
-    { id:'done',     delay:3600, pct:100, state:'done',    sub:'Fatura processada' },
-  ];
-
-  // Set all to pending
   ['upload','validate','extract','done'].forEach(id=> setStep(id,'pending','Aguardando…'));
   setStep('upload','running','Enviando arquivo…');
 
-  let animPct = 0;
+  // Animar progresso até 30% enquanto faz o upload
+  let animPct = 0, targetPct = 30;
   const anim = setInterval(()=>{
-    animPct = Math.min(animPct+1, pct);
-    fill.style.width = animPct+'%';
-    pctEl.textContent = animPct+'%';
+    if(animPct < targetPct){ animPct++; fill.style.width=animPct+'%'; pctEl.textContent=animPct+'%'; }
   }, 40);
 
-  steps.forEach(step=>{
-    setTimeout(()=>{
-      pct = step.pct;
-      setStep(step.id, step.state, step.sub);
-    }, step.delay);
-  });
+  try {
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('card', card);
+    formData.append('month', month);
+    formData.append('year', year);
 
-  // Randomly succeed or succeed (always succeed in demo)
-  setTimeout(()=>{
+    setStep('upload','running','Enviando arquivo…');
+    const uploadResp = await fetch(`${API_URL}/invoices/upload`, { method:'POST', body: formData });
+    if(!uploadResp.ok) throw new Error('Erro no upload');
+    const uploadData = await uploadResp.json();
+
+    setStep('upload','done','Enviado com sucesso');
+    targetPct = 60; setStep('validate','running','Validando fatura…');
+
+    await new Promise(r=>setTimeout(r,400));
+    setStep('validate','done','Formato válido');
+    targetPct = 90; setStep('extract','running','Extraindo transações…');
+
+    // Mapear transações retornadas pela API
+    reviewTransactions = (uploadData.transactions || []).map(t=>({
+      id: t.id || uid(),
+      desc: t.descricao || t.desc || '',
+      value: parseFloat(t.valor_parcela || t.value || 0),
+      date: t.data || t.date || today(),
+      card: t.cartao_nome || card,
+      category: t.categoria || t.category || 'Outros'
+    }));
+
     clearInterval(anim);
-    fill.style.width = '100%';
-    const count = Math.floor(Math.random()*20)+8;
-    document.getElementById('extractCount').textContent = `${count} transações extraídas com sucesso`;
+    fill.style.width='100%'; pctEl.textContent='100%';
+    setStep('extract','done','Concluído');
+    setStep('done','done','Fatura processada');
+
+    const count = reviewTransactions.length;
+    document.getElementById('extractCount').textContent = `${count} transação(ões) extraída(s) com sucesso`;
     showStatusPanel('success');
+    renderReviewTable();
     toast('Fatura processada com sucesso!', 'success');
-  }, 3800);
+
+    // Guardar processing_id para confirmação posterior
+    window._processingId = uploadData.processing_id || uploadData.processingId || null;
+
+  } catch(err) {
+    clearInterval(anim);
+    console.error('Erro no upload:', err);
+    setStep('upload','error','Falha no envio');
+    showStatusPanel('error');
+    toast('Erro ao processar fatura', 'error');
+    sendBtn.disabled = false;
+  }
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2374,32 +2568,56 @@ function removeReviewTransaction(index){
   renderReviewTable();
 }
 
-function confirmReviewImport(){
+async function confirmReviewImport(){
   if(!reviewTransactions.length){
     toast('Nenhuma transação para importar', 'error'); return;
   }
 
-  // Add all reviewed transactions to main expenses
-  reviewTransactions.forEach(e => {
-    expenses.unshift({
-      id: uid(),
-      desc: e.desc,
-      value: e.value,
-      date: e.date || today(),
-      card: e.card || 'Nubank',
-      category: e.category,
-      type: 'single',
-      notes: 'Importado via fatura'
-    });
-  });
+  try {
+    // Mapear transações para o formato da API
+    const apiTransactions = reviewTransactions.map(e=>({
+      descricao: e.desc,
+      valor_parcela: e.value,
+      data: e.date || today(),
+      cartao_nome: e.card,
+      categoria: e.category,
+      tipo: 'normal',
+      parcela_atual: 1,
+      total_parcelas: 1,
+      origem: 'fatura'
+    }));
 
-  toast(`${reviewTransactions.length} transações importadas com sucesso!`, 'success');
-  reviewTransactions = [];
-  renderReviewTable();
-  renderExpenseTable();
-  renderHomeRecent();
-  updateHomeKPIs();
-  showView('expenses');
+    let response;
+    if(window._processingId){
+      // Confirmar via endpoint de invoices se tiver processing_id
+      response = await fetch(`${API_URL}/invoices/confirm`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ processing_id: window._processingId, transactions: apiTransactions })
+      });
+    } else {
+      // Fallback: salvar cada transação individualmente
+      for(const t of apiTransactions){
+        await fetch(`${API_URL}/expenses`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(t)
+        });
+      }
+    }
+
+    const count = reviewTransactions.length;
+    reviewTransactions = [];
+    window._processingId = null;
+    renderReviewTable();
+    await loadExpensesFromAPI();
+    updateHomeKPIs();
+    toast(`${count} transações importadas com sucesso!`, 'success');
+    showView('expenses');
+  } catch(err) {
+    console.error('Erro ao confirmar importação:', err);
+    toast('Erro ao importar transações', 'error');
+  }
 }
 
 function cancelReviewImport(){
@@ -2423,8 +2641,9 @@ document.getElementById('goToReviewBtn').addEventListener('click', () => showVie
 function populateSheetFilters(){
   const cardSel = document.getElementById('sheetCard');
   const catSel = document.getElementById('sheetCategory');
+  const cards = getUniqueCards();
   cardSel.innerHTML = '<option value="">Todos os cartões</option>' +
-    CARDS.map(c=>`<option>${c}</option>`).join('');
+    cards.map(c=>`<option>${c}</option>`).join('');
   catSel.innerHTML = '<option value="">Todas as categorias</option>' +
     CATEGORIES.map(c=>`<option>${c}</option>`).join('');
 }
@@ -2574,7 +2793,7 @@ function populateTimelineFilters(){
   catSel.innerHTML = '<option value="">Todas as categorias</option>' +
     CATEGORIES.map(c=>`<option>${c}</option>`).join('');
   cardSel.innerHTML = '<option value="">Todos os cartões</option>' +
-    CARDS.map(c=>`<option>${c}</option>`).join('');
+    getUniqueCards().map(c=>`<option>${c}</option>`).join('');
 }
 
 function getCardFiltered(){
@@ -2957,14 +3176,28 @@ if(document.getElementById('cardSelector')){
   });
 }
 
+// Renderizar estados vazios imediatamente
 renderExpenseTable();
 renderHomeRecent();
-updateHomeKPIs();
-renderMiniChart();
 renderReviewTable();
 renderSheetTable();
 renderCardView();
 renderTimeline();
+
+// Carregar dados reais da API e re-renderizar tudo
+async function initFromAPI(){
+  try {
+    await loadExpensesFromAPI();       // popula window.expenses e re-renderiza tabelas
+    await updateHomeKPIs();            // KPIs do dashboard/summary
+    await renderMiniChart();           // gráfico mensal via analytics/monthly-trend
+    renderSheetTable();
+    renderCardView();
+    renderTimeline();
+  } catch(err) {
+    console.error('Erro na inicialização da API:', err);
+  }
+}
+initFromAPI();
 </script>
 </body>
 </html>
