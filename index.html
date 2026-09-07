@@ -138,7 +138,6 @@
     }
     .topbar-left { display: flex; align-items: center; gap: 12px; }
     .topbar-title { font-size: 15px; font-weight: 600; }
-    .topbar-subtitle { font-size: 12px; color: var(--text-3); }
     .topbar-right { display: flex; align-items: center; gap: 8px; }
 
     .content { flex: 1; overflow-y: auto; padding: 24px; }
@@ -473,20 +472,23 @@
     .mini-bar.current { opacity: 1; }
 
     /* ─── TIMELINE CHART (FE-008) ────────────────────────────── */
-    .timeline-bar {
-      flex: 1;
-      border-radius: 4px 4px 0 0;
-      background: var(--accent);
-      min-height: 4px;
-      transition: all .2s;
+    .timeline-chart-container {
       position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    .timeline-line-chart {
+      width: 100%;
+      height: 100%;
+    }
+    .timeline-point {
       cursor: pointer;
+      transition: all .2s;
     }
-    .timeline-bar:hover {
-      background: var(--accent-dim);
-      transform: scaleY(1.05);
+    .timeline-point:hover {
+      transform: scale(1.3);
     }
-    .timeline-bar-label {
+    .timeline-point-label {
       position: absolute;
       bottom: -24px;
       left: 50%;
@@ -495,7 +497,7 @@
       color: var(--text-3);
       white-space: nowrap;
     }
-    .timeline-bar-value {
+    .timeline-point-value {
       position: absolute;
       top: -20px;
       left: 50%;
@@ -506,8 +508,9 @@
       white-space: nowrap;
       opacity: 0;
       transition: opacity .2s;
+      pointer-events: none;
     }
-    .timeline-bar:hover .timeline-bar-value {
+    .timeline-point:hover .timeline-point-value {
       opacity: 1;
     }
 
@@ -544,6 +547,16 @@
       .table-toolbar { flex-direction: column; align-items: stretch; }
       .search-wrap { max-width: none; }
       .content { padding: 16px; }
+      /* Improve mobile menu button */
+      #menuToggle {
+        padding: 10px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+      }
+      #menuToggle svg {
+        width: 24px !important;
+        height: 24px !important;
+      }
     }
 
     /* ─── SCROLLBAR ──────────────────────────────────────────── */
@@ -629,13 +642,9 @@
         <button class="btn btn-ghost btn-icon" id="menuToggle" style="display:none" aria-label="Menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <div>
-          <div class="topbar-title" id="pageTitle">Dashboard</div>
-          <div class="topbar-subtitle" id="pageSubtitle">Resumo financeiro do mês atual</div>
-        </div>
+        <div class="topbar-title" id="pageTitle">Dashboard</div>
       </div>
       <div class="topbar-right">
-        <span style="font-size:12px;color:var(--text-3);font-family:var(--mono)" id="currentDate"></span>
         <button class="btn btn-primary btn-sm" id="quickAddBtn" data-view="expenses">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Novo Gasto
@@ -663,9 +672,9 @@
             </div>
             <div>
               <div class="kpi-label">Total Gasto</div>
-              <div class="kpi-value" id="kpi-total">R$ 4.820</div>
+              <div class="kpi-value" id="kpi-total">R$ 0,00</div>
             </div>
-            <div class="kpi-foot">+12% em relação ao mês anterior</div>
+            <div class="kpi-foot" id="kpi-total-foot">—</div>
           </div>
 
           <div class="kpi-card">
@@ -677,9 +686,9 @@
             </div>
             <div>
               <div class="kpi-label">Cartão com Maior Participação</div>
-              <div class="kpi-value" style="font-size:18px">Nubank</div>
+              <div class="kpi-value" style="font-size:18px" id="kpi-top-card">—</div>
             </div>
-            <div class="kpi-foot">68% dos gastos do mês</div>
+            <div class="kpi-foot" id="kpi-top-card-foot">—</div>
           </div>
 
           <div class="kpi-card">
@@ -691,9 +700,9 @@
             </div>
             <div>
               <div class="kpi-label">Maior Gasto</div>
-              <div class="kpi-value" style="font-size:18px">R$ 1.200</div>
+              <div class="kpi-value" style="font-size:18px" id="kpi-biggest">R$ 0,00</div>
             </div>
-            <div class="kpi-foot">MacBook Pro — 26/ago</div>
+            <div class="kpi-foot" id="kpi-biggest-foot">—</div>
           </div>
 
           <div class="kpi-card">
@@ -705,9 +714,9 @@
             </div>
             <div>
               <div class="kpi-label">Parcelas Futuras</div>
-              <div class="kpi-value">R$ 2.340</div>
+              <div class="kpi-value" id="kpi-future">R$ 0,00</div>
             </div>
-            <div class="kpi-foot">8 compras parceladas ativas</div>
+            <div class="kpi-foot" id="kpi-future-foot">—</div>
           </div>
         </div>
 
@@ -722,18 +731,18 @@
             </div>
             <div>
               <div class="kpi-label">Despesas Fixas</div>
-              <div class="kpi-value">R$ 1.650</div>
+              <div class="kpi-value" id="kpi-fixed">R$ 0,00</div>
             </div>
-            <div class="kpi-foot">Aluguel, assinaturas, plano de saúde</div>
+            <div class="kpi-foot" id="kpi-fixed-foot">—</div>
           </div>
 
           <div class="card" style="display:flex;flex-direction:column;gap:12px">
             <div style="display:flex;align-items:center;justify-content:space-between">
               <div>
                 <div class="kpi-label">Previsão — Próximo Mês</div>
-                <div class="kpi-value" style="font-size:20px;margin-top:4px">R$ 5.190</div>
+                <div class="kpi-value" style="font-size:20px;margin-top:4px" id="kpi-forecast">R$ 0,00</div>
               </div>
-              <span class="badge c-blue">+7,7%</span>
+              <span class="badge c-blue" id="kpi-forecast-badge">—</span>
             </div>
             <div class="kpi-foot" style="margin-bottom:4px">Baseado nos gastos fixos e parcelas futuras</div>
             <div class="mini-bar-wrap" id="miniChart"></div>
@@ -1208,12 +1217,7 @@
           <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:12px">Selecione o Cartão</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap" id="cardSelector">
             <button class="chip card-select-btn active" data-card="">Todos</button>
-            <button class="chip card-select-btn" data-card="Nubank">Nubank</button>
-            <button class="chip card-select-btn" data-card="Itaú">Itaú</button>
-            <button class="chip card-select-btn" data-card="Bradesco">Bradesco</button>
-            <button class="chip card-select-btn" data-card="Inter">Inter</button>
-            <button class="chip card-select-btn" data-card="C6 Bank">C6 Bank</button>
-            <button class="chip card-select-btn" data-card="Dinheiro">Dinheiro</button>
+            <!-- Cards will be populated dynamically -->
           </div>
         </div>
 
@@ -1574,11 +1578,8 @@
         <!-- Timeline chart -->
         <div class="card" style="margin-bottom:20px">
           <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:16px">Evolução Temporal</div>
-          <div id="timelineChart" style="height:300px;display:flex;align-items:flex-end;gap:8px;padding:20px 0;border-bottom:1px solid var(--border-soft)">
-            <!-- Chart bars will be rendered here -->
-          </div>
-          <div id="timelineLabels" style="display:flex;gap:8px;margin-top:8px;justify-content:space-between">
-            <!-- Month labels will be rendered here -->
+          <div id="timelineChart" style="height:300px;padding:20px">
+            <!-- Chart will be rendered here -->
           </div>
         </div>
 
@@ -1779,14 +1780,14 @@ function toast(msg, type='info', dur=3000){
 
 /* ─── ROUTER ─────────────────────────────────────────────────────────── */
 const routes = {
-  home:        { title:'Dashboard',                sub:'Resumo financeiro do mês atual' },
-  expenses:    { title:'Gerenciar Gastos',         sub:'Lançamento e edição de transações' },
-  upload:      { title:'Upload de Fatura',         sub:'Envio de faturas PDF para processamento' },
-  review:      { title:'Revisão de Transações',    sub:'Revise e valide as transações extraídas' },
-  spreadsheet: { title:'Planilha Financeira',      sub:'Visualização consolidada de gastos' },
-  cardview:    { title:'Visão por Cartão',          sub:'Análise detalhada por cartão' },
-  reports:     { title:'Relatórios Financeiros',   sub:'Geração de relatórios em PDF' },
-  timeline:    { title:'Linha do Tempo',           sub:'Análise histórica de gastos' },
+  home:        { title:'Dashboard' },
+  expenses:    { title:'Gerenciar Gastos' },
+  upload:      { title:'Upload de Fatura' },
+  review:      { title:'Revisão de Transações' },
+  spreadsheet: { title:'Planilha Financeira' },
+  cardview:    { title:'Visão por Cartão' },
+  reports:     { title:'Relatórios Financeiros' },
+  timeline:    { title:'Linha do Tempo' },
 };
 
 function showView(name){
@@ -1797,8 +1798,8 @@ function showView(name){
   const ni = document.querySelector(`[data-view="${name}"]`);
   if(ni) ni.classList.add('active');
   const r = routes[name] || {};
-  document.getElementById('pageTitle').textContent = r.title || name;
-  document.getElementById('pageSubtitle').textContent = r.sub || '';
+  const pageTitle = document.getElementById('pageTitle');
+  if(pageTitle) pageTitle.textContent = r.title || name;
   closeSidebar();
 }
 
@@ -1814,7 +1815,10 @@ document.getElementById('menuToggle').addEventListener('click',()=>{
 document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
 // Show hamburger on mobile
 function checkMobile(){
-  document.getElementById('menuToggle').style.display = window.innerWidth<=768?'flex':'none';
+  const menuToggle = document.getElementById('menuToggle');
+  if(menuToggle) {
+    menuToggle.style.display = window.innerWidth<=768?'flex':'none';
+  }
 }
 window.addEventListener('resize', checkMobile); checkMobile();
 
@@ -1827,7 +1831,6 @@ document.querySelectorAll('[data-view]').forEach(el=>{
 const now = new Date();
 const months = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 document.getElementById('monthLabel').textContent = `${months[now.getMonth()]} de ${now.getFullYear()}`;
-document.getElementById('currentDate').textContent = now.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
 // Set default date in form
 document.getElementById('f-date').value = today();
 // Set default month in upload
@@ -1869,7 +1872,8 @@ async function loadExpensesFromAPI() {
     populateSheetFilters();
     populateCardCategoryFilter();
     populateTimelineFilters();
-    
+    populateCardSelector();
+
     renderExpenseTable();
     renderHomeRecent();
   } catch (error) {
@@ -2005,6 +2009,21 @@ function populateFilters(){
 
 function populateCardSelector(){
   const selector = document.getElementById('cardSelector');
+  const cards = getUniqueCards();
+
+  // Clear existing buttons except "Todos"
+  selector.innerHTML = '<button class="chip card-select-btn active" data-card="">Todos</button>';
+
+  // Add buttons for each card from data
+  cards.forEach(card => {
+    const btn = document.createElement('button');
+    btn.className = 'chip card-select-btn';
+    btn.dataset.card = card;
+    btn.textContent = card;
+    selector.appendChild(btn);
+  });
+
+  // Add event listeners
   selector.querySelectorAll('.card-select-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       selector.querySelectorAll('.card-select-btn').forEach(b=>b.classList.remove('active'));
@@ -2252,28 +2271,102 @@ async function updateHomeKPIs(){
     const response = await fetch(`${API_URL}/dashboard/summary?month=${now.getMonth()+1}&year=${now.getFullYear()}`);
     const data = await response.json();
 
-    if(data.total_month !== undefined)
+    // Total Gasto
+    if(data.total_month !== undefined) {
       document.getElementById('kpi-total').textContent = fmt(data.total_month);
+      // Calculate month-over-month change if possible
+      const foot = document.getElementById('kpi-total-foot');
+      if(foot) foot.textContent = '—';
+    }
 
-    // KPIs adicionais se existirem no HTML
+    // Cartão com Maior Participação
     const kpiTopCard = document.getElementById('kpi-top-card');
-    if(kpiTopCard && data.top_card) kpiTopCard.textContent = `${data.top_card} (${data.top_card_pct}%)`;
+    const kpiTopCardFoot = document.getElementById('kpi-top-card-foot');
+    if(kpiTopCard && data.top_card) {
+      kpiTopCard.textContent = data.top_card;
+      if(kpiTopCardFoot && data.top_card_pct !== undefined) {
+        kpiTopCardFoot.textContent = `${data.top_card_pct}% dos gastos do mês`;
+      }
+    } else if(kpiTopCard) {
+      kpiTopCard.textContent = '—';
+      if(kpiTopCardFoot) kpiTopCardFoot.textContent = '—';
+    }
 
+    // Maior Gasto
     const kpiBiggest = document.getElementById('kpi-biggest');
-    if(kpiBiggest && data.biggest_expense) kpiBiggest.textContent = fmt(data.biggest_expense.valor_parcela);
+    const kpiBiggestFoot = document.getElementById('kpi-biggest-foot');
+    if(kpiBiggest && data.biggest_expense) {
+      kpiBiggest.textContent = fmt(data.biggest_expense.valor_parcela);
+      if(kpiBiggestFoot) {
+        const desc = data.biggest_expense.descricao || data.biggest_expense.desc || '—';
+        const date = data.biggest_expense.data ? fmtDate(data.biggest_expense.data) : '';
+        kpiBiggestFoot.textContent = date ? `${desc} — ${date}` : desc;
+      }
+    } else if(kpiBiggest) {
+      kpiBiggest.textContent = 'R$ 0,00';
+      if(kpiBiggestFoot) kpiBiggestFoot.textContent = '—';
+    }
 
+    // Parcelas Futuras
     const kpiFuture = document.getElementById('kpi-future');
-    if(kpiFuture && data.future_installments !== undefined) kpiFuture.textContent = fmt(data.future_installments);
+    const kpiFutureFoot = document.getElementById('kpi-future-foot');
+    if(kpiFuture && data.future_installments !== undefined) {
+      kpiFuture.textContent = fmt(data.future_installments);
+      if(kpiFutureFoot && data.active_installments_count !== undefined) {
+        kpiFutureFoot.textContent = `${data.active_installments_count} compras parceladas ativas`;
+      }
+    } else if(kpiFuture) {
+      kpiFuture.textContent = 'R$ 0,00';
+      if(kpiFutureFoot) kpiFutureFoot.textContent = '—';
+    }
 
+    // Despesas Fixas
     const kpiFixed = document.getElementById('kpi-fixed');
-    if(kpiFixed && data.fixed_expenses !== undefined) kpiFixed.textContent = fmt(data.fixed_expenses);
+    const kpiFixedFoot = document.getElementById('kpi-fixed-foot');
+    if(kpiFixed && data.fixed_expenses !== undefined) {
+      kpiFixed.textContent = fmt(data.fixed_expenses);
+      if(kpiFixedFoot) kpiFixedFoot.textContent = 'Aluguel, assinaturas, plano de saúde';
+    } else if(kpiFixed) {
+      kpiFixed.textContent = 'R$ 0,00';
+      if(kpiFixedFoot) kpiFixedFoot.textContent = '—';
+    }
 
+    // Previsão Próximo Mês
     const kpiForecast = document.getElementById('kpi-forecast');
-    if(kpiForecast && data.next_month_forecast !== undefined) kpiForecast.textContent = fmt(data.next_month_forecast);
+    const kpiForecastBadge = document.getElementById('kpi-forecast-badge');
+    if(kpiForecast && data.next_month_forecast !== undefined) {
+      kpiForecast.textContent = fmt(data.next_month_forecast);
+      if(kpiForecastBadge) {
+        // Calculate percentage change if we have data
+        const currentTotal = data.total_month || 0;
+        const forecast = data.next_month_forecast || 0;
+        if(currentTotal > 0) {
+          const change = ((forecast - currentTotal) / currentTotal) * 100;
+          kpiForecastBadge.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+        } else {
+          kpiForecastBadge.textContent = '—';
+        }
+      }
+    } else if(kpiForecast) {
+      kpiForecast.textContent = 'R$ 0,00';
+      if(kpiForecastBadge) kpiForecastBadge.textContent = '—';
+    }
+
   } catch(err) {
     // Fallback: calcular localmente a partir dos dados já carregados
     const total = expenses.reduce((s,e)=>s+e.value,0);
     document.getElementById('kpi-total').textContent = fmt(total);
+    document.getElementById('kpi-total-foot').textContent = '—';
+    document.getElementById('kpi-top-card').textContent = '—';
+    document.getElementById('kpi-top-card-foot').textContent = '—';
+    document.getElementById('kpi-biggest').textContent = 'R$ 0,00';
+    document.getElementById('kpi-biggest-foot').textContent = '—';
+    document.getElementById('kpi-future').textContent = 'R$ 0,00';
+    document.getElementById('kpi-future-foot').textContent = '—';
+    document.getElementById('kpi-fixed').textContent = 'R$ 0,00';
+    document.getElementById('kpi-fixed-foot').textContent = '—';
+    document.getElementById('kpi-forecast').textContent = 'R$ 0,00';
+    document.getElementById('kpi-forecast-badge').textContent = '—';
     console.error('Erro ao buscar KPIs da API:', err);
   }
 }
@@ -3106,17 +3199,60 @@ function renderTimeline(){
   const periodLabels = {6:'Últimos 6 meses',12:'Últimos 12 meses',24:'Últimos 24 meses'};
   document.getElementById('timelinePeriodLabel').textContent = periodLabels[timelineFilter.period] || 'Período selecionado';
 
-  // Render chart
+  // Render chart as line with points
   const chart = document.getElementById('timelineChart');
   const maxValue = Math.max(...monthlyData.map(m=>m.total), 1);
+  const chartHeight = 300;
+  const chartWidth = chart.offsetWidth || 800;
+  const padding = 40;
+  const usableWidth = chartWidth - (padding * 2);
+  const usableHeight = chartHeight - (padding * 2);
 
-  chart.innerHTML = monthlyData.map(m=>`
-    <div class="timeline-bar" style="height:${Math.max((m.total/maxValue)*100,4)}%;background:${m.total>0?'var(--accent)':'var(--border)'}"
-         title="${m.label}: ${fmt(m.total)}">
-      <div class="timeline-bar-value">${m.total>0?fmt(m.total):''}</div>
-      <div class="timeline-bar-label">${m.label}</div>
-    </div>
-  `).join('');
+  // Calculate points
+  const points = monthlyData.map((m, i) => {
+    const x = padding + (i / (monthlyData.length - 1)) * usableWidth;
+    const y = padding + usableHeight - ((m.total / maxValue) * usableHeight);
+    return { x, y, ...m };
+  });
+
+  // Create SVG line chart
+  const svg = `
+    <svg class="timeline-line-chart" viewBox="0 0 ${chartWidth} ${chartHeight}" style="width:100%;height:100%">
+      <!-- Grid lines -->
+      <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${chartHeight - padding}" stroke="var(--border)" stroke-width="1"/>
+      <line x1="${padding}" y1="${chartHeight - padding}" x2="${chartWidth - padding}" y2="${chartHeight - padding}" stroke="var(--border)" stroke-width="1"/>
+
+      <!-- Line path -->
+      ${points.length > 1 ? `
+        <polyline
+          fill="none"
+          stroke="var(--accent)"
+          stroke-width="2"
+          points="${points.map(p => `${p.x},${p.y}`).join(' ')}"
+        />
+      ` : ''}
+
+      <!-- Data points -->
+      ${points.map((p, i) => `
+        <g class="timeline-point" data-index="${i}">
+          <circle
+            cx="${p.x}"
+            cy="${p.y}"
+            r="5"
+            fill="${p.total > 0 ? 'var(--accent)' : 'var(--border)'}"
+            stroke="${p.total > 0 ? 'var(--bg-surface)' : 'var(--border)'}"
+            stroke-width="2"
+          />
+          <text x="${p.x}" y="${chartHeight - padding + 20}" text-anchor="middle" fill="var(--text-3)" font-size="10">${p.label}</text>
+          ${p.total > 0 ? `
+            <text x="${p.x}" y="${p.y - 10}" text-anchor="middle" fill="var(--text-1)" font-size="11" font-weight="600" class="timeline-point-value">${fmt(p.total)}</text>
+          ` : ''}
+        </g>
+      `).join('')}
+    </svg>
+  `;
+
+  chart.innerHTML = svg;
 
   // Category breakdown
   const byCategory = data.reduce((acc,e)=>{
@@ -3163,18 +3299,9 @@ populateFilters();
 populateSheetFilters();
 populateCardCategoryFilter();
 populateTimelineFilters();
+populateCardSelector();
 
-// Card selector bindings
-if(document.getElementById('cardSelector')){
-  document.getElementById('cardSelector').querySelectorAll('.card-select-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      document.getElementById('cardSelector').querySelectorAll('.card-select-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      cardFilter.card = btn.dataset.card;
-      renderCardView();
-    });
-  });
-}
+// Card selector is now dynamically populated in populateCardSelector()
 
 // Renderizar estados vazios imediatamente
 renderExpenseTable();
@@ -3193,6 +3320,7 @@ async function initFromAPI(){
     renderSheetTable();
     renderCardView();
     renderTimeline();
+    populateCardSelector();           // populate card selector with real cards
   } catch(err) {
     console.error('Erro na inicialização da API:', err);
   }
