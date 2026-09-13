@@ -1674,8 +1674,8 @@
         <input type="text" class="form-control" id="f-notes" placeholder="Opcional" />
       </div>
       <div class="form-actions">
-        <button class="btn btn-ghost" id="cancelModal">Cancelar</button>
-        <button class="btn btn-primary" id="saveExpense">Salvar</button>
+        <button type="button" class="btn btn-ghost" id="cancelModal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="saveExpense">Salvar</button>
       </div>
     </div>
   </div>
@@ -1759,6 +1759,17 @@
 /* ─── UTILS ──────────────────────────────────────────────────────────── */
 const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
 const fmtDate = d => { if(!d) return '—'; const [y,m,dd] = d.split('-'); return `${dd}/${m}/${y}`; };
+const formatDateForAPI = d => {
+  if(!d) return today();
+  // Se já estiver no formato ISO (YYYY-MM-DD), retorna como está
+  if(d.match(/^\d{4}-\d{2}-\d{2}$/)) return d;
+  // Se estiver no formato DD/MM/YYYY, converte para YYYY-MM-DD
+  if(d.includes('/')) {
+    const [dd, m, y] = d.split('/');
+    return `${y}-${m}-${dd}`;
+  }
+  return d;
+};
 const today = () => new Date().toISOString().split('T')[0];
 const uid = () => Math.random().toString(36).slice(2,10);
 
@@ -1837,16 +1848,27 @@ document.getElementById('uploadMonth').value = now.getMonth()+1;
 /* ═══════════════════════════════════════════════════════════════
    API CONFIGURAÇÃO — Integração com BFF
 ═══════════════════════════════════════════════════════════════ */
-const API_URL = 'https://fintrack-bff.vercel.app/api/v1';
+const API_URL = 'http://localhost:5000/api/v1';
 
 /* ═══════════════════════════════════════════════════════════════
    API FUNCTIONS — Integração com BFF
 ═══════════════════════════════════════════════════════════════ */
 async function loadExpensesFromAPI() {
   try {
-    const response = await fetch(`${API_URL}/expenses`);
-    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    console.log('=== INICIANDO CARREGAMENTO DE GASTOS ===');
+    console.log('URL da API:', `${API_URL}/expenses?limit=100`);
+    
+    const response = await fetch(`${API_URL}/expenses?limit=100`);
+    console.log('Resposta recebida - Status:', response.status, response.statusText);
+    
+    if(!response.ok) {
+      const errorText = await response.text();
+      console.error('ERRO NA RESPOSTA:', errorText);
+      throw new Error(`HTTP ${response.status} - ${errorText}`);
+    }
+    
     const data = await response.json();
+    console.log('Dados recebidos da API:', data);
     
     // Mapear dados da API para o formato local
     expenses = (data.items || []).map(item => ({
@@ -1862,6 +1884,9 @@ async function loadExpensesFromAPI() {
       notes: item.observacao || ''
     }));
 
+    console.log('Gastos mapeados:', expenses.length, 'itens');
+    console.log('Lista de gastos:', expenses);
+
     // Sincronizar também em window.expenses (usado por api-integration.js externo)
     window.expenses = expenses;
 
@@ -1874,28 +1899,41 @@ async function loadExpensesFromAPI() {
 
     renderExpenseTable();
     renderHomeRecent();
+    
+    console.log('=== CARREGAMENTO CONCLUÍDO COM SUCESSO ===');
   } catch (error) {
-    console.error('Erro ao carregar gastos:', error);
+    console.error('=== ERRO NO CARREGAMENTO ===');
+    console.error('Erro detalhado:', error);
+    console.error('Stack trace:', error.stack);
     toast('Erro ao carregar dados da API', 'error');
+    throw error; // Re-throw para permitir tratamento pelo chamador
   }
 }
 
 async function saveExpenseToAPI(expenseData) {
   try {
+    console.log('=== INICIANDO SALVAMENTO DE GASTO ===');
+    console.log('Dados recebidos:', expenseData);
+    console.log('URL da API:', `${API_URL}/expenses`);
+    
     // Mapear formato local para formato da API
     const apiData = {
       data: expenseData.date,
       cartao_nome: expenseData.card,
       categoria: expenseData.category,
       descricao: expenseData.desc,
-      valor_parcela: expenseData.value,
+      valor_parcela: parseFloat(expenseData.value), // Garantir que seja número
       tipo: expenseData.type === 'installment' ? 'parcelado' : expenseData.type === 'fixed' ? 'fixo' : 'normal',
-      parcela_atual: expenseData.installCurr || 1,
-      total_parcelas: expenseData.installTotal || 1,
+      parcela_atual: parseInt(expenseData.installCurr || 1),
+      total_parcelas: parseInt(expenseData.installTotal || 1),
       origem: 'manual',
       observacao: expenseData.notes || ''
     };
     
+    console.log('Dados formatados para API:', apiData);
+    console.log('JSON stringificado:', JSON.stringify(apiData));
+    
+    console.log('Fazendo requisição POST para:', `${API_URL}/expenses`);
     const response = await fetch(`${API_URL}/expenses`, {
       method: 'POST',
       headers: {
@@ -1904,29 +1942,44 @@ async function saveExpenseToAPI(expenseData) {
       body: JSON.stringify(apiData)
     });
     
-    if (!response.ok) throw new Error('Erro ao salvar gasto');
+    console.log('Resposta recebida - Status:', response.status, response.statusText);
+    console.log('Headers da resposta:', response.headers);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('ERRO NA RESPOSTA DA API:', errorText);
+      throw new Error(`Erro ao salvar gasto: ${response.status} - ${errorText}`);
+    }
     
     const result = await response.json();
+    console.log('Gasto salvo com sucesso - Resultado:', result);
+    console.log('=== SALVAMENTO CONCLUÍDO ===');
     return result;
   } catch (error) {
-    console.error('Erro ao salvar gasto:', error);
+    console.error('=== ERRO NO SALVAMENTO ===');
+    console.error('Erro detalhado:', error);
+    console.error('Stack trace:', error.stack);
     throw error;
   }
 }
 
 async function updateExpenseInAPI(id, expenseData) {
   try {
+    console.log('Atualizando gasto na API, ID:', id, 'dados:', expenseData);
+    
     const apiData = {
       data: expenseData.date,
       cartao_nome: expenseData.card,
       categoria: expenseData.category,
       descricao: expenseData.desc,
-      valor_parcela: expenseData.value,
+      valor_parcela: parseFloat(expenseData.value), // Garantir que seja número
       tipo: expenseData.type === 'installment' ? 'parcelado' : expenseData.type === 'fixed' ? 'fixo' : 'normal',
-      parcela_atual: expenseData.installCurr || 1,
-      total_parcelas: expenseData.installTotal || 1,
+      parcela_atual: parseInt(expenseData.installCurr || 1),
+      total_parcelas: parseInt(expenseData.installTotal || 1),
       observacao: expenseData.notes || ''
     };
+    
+    console.log('Dados formatados para atualização:', apiData);
     
     const response = await fetch(`${API_URL}/expenses/${id}`, {
       method: 'PUT',
@@ -1936,9 +1989,16 @@ async function updateExpenseInAPI(id, expenseData) {
       body: JSON.stringify(apiData)
     });
     
-    if (!response.ok) throw new Error('Erro ao atualizar gasto');
+    console.log('Resposta da atualização:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Erro na resposta da atualização:', errorText);
+      throw new Error(`Erro ao atualizar gasto: ${response.status} - ${errorText}`);
+    }
     
     const result = await response.json();
+    console.log('Gasto atualizado com sucesso:', result);
     return result;
   } catch (error) {
     console.error('Erro ao atualizar gasto:', error);
@@ -1948,12 +2008,21 @@ async function updateExpenseInAPI(id, expenseData) {
 
 async function deleteExpenseFromAPI(id) {
   try {
+    console.log('Deletando gasto da API, ID:', id);
+    
     const response = await fetch(`${API_URL}/expenses/${id}`, {
       method: 'DELETE'
     });
     
-    if (!response.ok) throw new Error('Erro ao deletar gasto');
+    console.log('Resposta da deleção:', response.status, response.statusText);
     
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Erro na resposta da deleção:', errorText);
+      throw new Error(`Erro ao deletar gasto: ${response.status} - ${errorText}`);
+    }
+    
+    console.log('Gasto deletado com sucesso');
     return true;
   } catch (error) {
     console.error('Erro ao deletar gasto:', error);
@@ -2101,6 +2170,8 @@ function renderExpenseTable(){
 
 /* CRUD ops */
 function saveExpense(){
+  console.log('=== FUNÇÃO SAVEEXPENSE CHAMADA ===');
+  
   const desc  = document.getElementById('f-desc').value.trim();
   const value = parseFloat(document.getElementById('f-value').value);
   const date  = document.getElementById('f-date').value;
@@ -2109,15 +2180,29 @@ function saveExpense(){
   const type  = document.getElementById('f-type').value;
   const notes = document.getElementById('f-notes').value.trim();
 
+  console.log('Dados do formulário:', { desc, value, date, card, cat, type, notes });
+
   if(!desc||!value||!date||!card||!cat){
     toast('Preencha todos os campos obrigatórios', 'error'); return;
   }
 
-  const entry = { desc, value, date, card, category:cat, type, notes };
+  const entry = { 
+    desc, 
+    value, 
+    date, 
+    card, 
+    category: cat,  // Usar 'category' pois saveExpenseToAPI espera expenseData.category
+    type, 
+    notes 
+  };
+  
   if(type==='installment'){
     entry.installCurr  = parseInt(document.getElementById('f-installCurr').value)||1;
     entry.installTotal = parseInt(document.getElementById('f-installTotal').value)||2;
   }
+
+  console.log('Entry criado para enviar para API:', entry);
+  console.log('EditingId:', editingId);
 
   // Usar API para salvar ou atualizar
   const apiCall = editingId
@@ -2125,17 +2210,23 @@ function saveExpense(){
     : saveExpenseToAPI(entry);
 
   apiCall
-    .then(() => {
+    .then((result) => {
+      console.log('Resultado do salvamento:', result);
       toast(editingId ? 'Gasto atualizado com sucesso!' : 'Gasto adicionado com sucesso!', 'success');
       closeExpenseModal();
+      console.log('Carregando gastos atualizados da API...');
       return loadExpensesFromAPI();
     })
     .then(() => {
-      updateHomeKPIs();
+      console.log('Atualizando KPIs...');
+      return updateHomeKPIs();
+    })
+    .then(() => {
+      console.log('Processo de salvamento concluído com sucesso');
     })
     .catch((error) => {
+      console.error('Erro no processo de salvamento:', error);
       toast('Erro ao salvar gasto na API', 'error');
-      console.error(error);
     });
 }
 
@@ -2191,7 +2282,19 @@ document.getElementById('quickAddBtn').addEventListener('click',()=>{
 });
 document.getElementById('closeModal').addEventListener('click', closeExpenseModal);
 document.getElementById('cancelModal').addEventListener('click', closeExpenseModal);
-document.getElementById('saveExpense').addEventListener('click', saveExpense);
+const saveButton = document.getElementById('saveExpense');
+if (saveButton) {
+  console.log('Botão salvar encontrado, adicionando event listener');
+  saveButton.addEventListener('click', function(e) {
+    console.log('=== BOTÃO SALVAR CLICADO ===');
+    console.log('Evento:', e);
+    console.log('Elemento:', e.target);
+    e.preventDefault(); // Prevenir comportamento padrão
+    saveExpense();
+  });
+} else {
+  console.error('Botão salvar não encontrado!');
+}
 document.getElementById('uploadShortcut').addEventListener('click',()=> showView('upload'));
 
 document.getElementById('closeConfirm').addEventListener('click',()=> document.getElementById('confirmModal').classList.remove('open'));
@@ -2200,15 +2303,22 @@ document.getElementById('doDelete').addEventListener('click',()=>{
   const id = deletingId;
   deletingId = null;
   document.getElementById('confirmModal').classList.remove('open');
+  console.log('Iniciando deleção do gasto, ID:', id);
   deleteExpenseFromAPI(id)
     .then(() => {
+      console.log('Gasto excluído com sucesso, carregando dados atualizados...');
       toast('Gasto excluído', 'success');
       return loadExpensesFromAPI();
     })
     .then(() => {
-      updateHomeKPIs();
+      console.log('Atualizando KPIs após deleção...');
+      return updateHomeKPIs();
     })
-    .catch(() => {
+    .then(() => {
+      console.log('Processo de deleção concluído com sucesso');
+    })
+    .catch((error) => {
+      console.error('Erro no processo de deleção:', error);
       toast('Erro ao excluir gasto', 'error');
     });
 });
@@ -2265,9 +2375,13 @@ document.querySelectorAll('th[data-sort]').forEach(th=>{
 ═══════════════════════════════════════════════════════════════ */
 async function updateHomeKPIs(){
   try {
+    console.log('Atualizando KPIs do dashboard...');
     const now = new Date();
     const response = await fetch(`${API_URL}/dashboard/summary?month=${now.getMonth()+1}&year=${now.getFullYear()}`);
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
+    
+    console.log('Dados dos KPIs recebidos:', data);
 
     // Total Gasto
     if(data.total_month !== undefined) {
@@ -2351,12 +2465,14 @@ async function updateHomeKPIs(){
     }
 
   } catch(err) {
+    console.error('Erro ao atualizar KPIs:', err);
     // Fallback: calcular localmente a partir dos dados já carregados
     const total = expenses.reduce((s,e)=>s+e.value,0);
     document.getElementById('kpi-total').textContent = fmt(total);
     document.getElementById('kpi-total-foot').textContent = '—';
     document.getElementById('kpi-top-card').textContent = '—';
     document.getElementById('kpi-top-card-foot').textContent = '—';
+    throw err; // Re-throw para permitir tratamento pelo chamador
     document.getElementById('kpi-biggest').textContent = 'R$ 0,00';
     document.getElementById('kpi-biggest-foot').textContent = '—';
     document.getElementById('kpi-future').textContent = 'R$ 0,00';
@@ -2532,6 +2648,8 @@ sendBtn.addEventListener('click', async ()=>{
     const uploadResp = await fetch(`${API_URL}/invoices/upload`, { method:'POST', body: formData });
     if(!uploadResp.ok) throw new Error('Erro no upload');
     const uploadData = await uploadResp.json();
+    
+    console.log('Dados do upload recebidos:', uploadData);
 
     setStep('upload','done','Enviado com sucesso');
     targetPct = 60; setStep('validate','running','Validando fatura…');
@@ -2549,6 +2667,8 @@ sendBtn.addEventListener('click', async ()=>{
       card: t.cartao_nome || card,
       category: t.categoria || t.category || 'Outros'
     }));
+    
+    console.log('Transações mapeadas para review:', reviewTransactions);
 
     clearInterval(anim);
     fill.style.width='100%'; pctEl.textContent='100%';
@@ -2668,8 +2788,8 @@ async function confirmReviewImport(){
     // Mapear transações para o formato da API
     const apiTransactions = reviewTransactions.map(e=>({
       descricao: e.desc,
-      valor_parcela: e.value,
-      data: e.date || today(),
+      valor_parcela: parseFloat(e.value), // Garantir que seja número
+      data: formatDateForAPI(e.date || today()), // Converter formato de data
       cartao_nome: e.card,
       categoria: e.category,
       tipo: 'normal',
@@ -2677,10 +2797,13 @@ async function confirmReviewImport(){
       total_parcelas: 1,
       origem: 'fatura'
     }));
+    
+    console.log('Enviando transações para API:', apiTransactions);
 
     let response;
     if(window._processingId){
       // Confirmar via endpoint de invoices se tiver processing_id
+      console.log('Usando endpoint de confirmação com processing_id:', window._processingId);
       response = await fetch(`${API_URL}/invoices/confirm`, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
@@ -2688,23 +2811,46 @@ async function confirmReviewImport(){
       });
     } else {
       // Fallback: salvar cada transação individualmente
+      console.log('Usando fallback: salvando transações individualmente');
       for(const t of apiTransactions){
-        await fetch(`${API_URL}/expenses`, {
+        const resp = await fetch(`${API_URL}/expenses`, {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify(t)
         });
+        if(!resp.ok) {
+          const errorText = await resp.text();
+          console.error('Erro ao salvar transação individual:', errorText);
+          throw new Error(`Erro ao salvar transação: ${errorText}`);
+        }
       }
     }
+    
+    if(response && !response.ok) {
+      const errorText = await response.text();
+      console.error('Erro na resposta da API:', errorText);
+      throw new Error(`Erro na API: ${errorText}`);
+    }
+    
+    console.log('Transações salvas com sucesso');
 
     const count = reviewTransactions.length;
     reviewTransactions = [];
     window._processingId = null;
     renderReviewTable();
-    await loadExpensesFromAPI();
-    updateHomeKPIs();
-    toast(`${count} transações importadas com sucesso!`, 'success');
-    showView('expenses');
+    
+    // Carregar dados da API com tratamento de erro
+    try {
+      await loadExpensesFromAPI();
+      await updateHomeKPIs();
+      toast(`${count} transações importadas com sucesso!`, 'success');
+      showView('expenses');
+    } catch (apiError) {
+      console.error('Erro ao carregar dados após importação:', apiError);
+      toast('Transações importadas, mas erro ao atualizar a interface', 'error');
+      // Mesmo com erro, mostrar a tela de gastos
+      showView('expenses');
+    }
   } catch(err) {
     console.error('Erro ao confirmar importação:', err);
     toast('Erro ao importar transações', 'error');
@@ -3312,6 +3458,7 @@ renderTimeline();
 // Carregar dados reais da API e re-renderizar tudo
 async function initFromAPI(){
   try {
+    console.log('Inicializando dados da API...');
     await loadExpensesFromAPI();       // popula window.expenses e re-renderiza tabelas
     await updateHomeKPIs();            // KPIs do dashboard/summary
     await renderMiniChart();           // gráfico mensal via analytics/monthly-trend
@@ -3319,11 +3466,18 @@ async function initFromAPI(){
     renderCardView();
     renderTimeline();
     populateCardSelector();           // populate card selector with real cards
+    console.log('Inicialização da API concluída com sucesso');
   } catch(err) {
     console.error('Erro na inicialização da API:', err);
+    toast('Erro ao carregar dados iniciais. Algumas funcionalidades podem não funcionar corretamente.', 'error');
   }
 }
-initFromAPI();
+
+// Inicializar quando o DOM estiver pronto
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM carregado, iniciando API...');
+  initFromAPI();
+});
 </script>
 </body>
 </html>
