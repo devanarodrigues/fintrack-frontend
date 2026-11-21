@@ -623,6 +623,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           Linha do Tempo
         </div>
+        <div class="nav-item" data-view="suggestions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          Sugestões de Economia
+        </div>
       </div>
     </nav>
 
@@ -1585,6 +1589,131 @@
         <div class="card">
           <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:16px">Distribuição por Categoria no Período</div>
           <div id="timelineCategoryBreakdown"></div>
+        </div>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════════
+           FE-009 — SUGESTÕES DE ECONOMIA
+      ════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-suggestions">
+        <div class="page-title">Sugestões de Economia</div>
+        <div class="page-sub">Análise IA dos seus gastos com recomendações personalizadas</div>
+
+        <!-- API Key Configuration -->
+        <div class="card" style="margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:12px">Configuração da API Gemini</div>
+          <div style="display:flex;gap:12px;align-items:flex-end">
+            <div style="flex:1">
+              <label class="form-label">Chave da API Gemini (GEMINI_API_KEY)</label>
+              <input type="password" class="form-control" id="geminiApiKey" placeholder="Cole sua chave da API Gemini aqui" />
+            </div>
+            <button class="btn btn-primary" id="saveApiKey">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Salvar
+            </button>
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:8px">
+            Sua chave será salva localmente no navegador. Obtenha sua chave em <a href="https://makersuite.google.com/app/apikey" target="_blank" style="color:var(--accent)">Google AI Studio</a>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <div style="margin-bottom:20px">
+          <button class="btn btn-primary" id="generateSuggestions">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            Gerar Sugestões com IA
+          </button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="suggestionsLoading" style="display:none;text-align:center;padding:40px">
+          <div style="width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px"></div>
+          <div style="font-size:14px;color:var(--text-2)">Analisando seus gastos e gerando sugestões...</div>
+        </div>
+        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
+        <!-- Suggestions Results -->
+        <div id="suggestionsResults" style="display:none">
+          <!-- Summary Cards -->
+          <div class="grid-3" style="margin-bottom:20px">
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <div class="kpi-icon c-blue">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </div>
+                <span class="badge c-blue">total</span>
+              </div>
+              <div>
+                <div class="kpi-label">Total Gasto</div>
+                <div class="kpi-value" id="suggTotal">R$ 0</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <div class="kpi-icon c-green">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                </div>
+                <span class="badge c-green">economia</span>
+              </div>
+              <div>
+                <div class="kpi-label">Economia Potencial</div>
+                <div class="kpi-value" id="suggEconomy">R$ 0</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <div class="kpi-icon c-purple">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </div>
+                <span class="badge c-purple">investimento</span>
+              </div>
+              <div>
+                <div class="kpi-label">Aporte Sugerido</div>
+                <div class="kpi-value" id="suggInvestment">R$ 0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Suggestion Content -->
+          <div class="card" style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div style="font-size:13px;font-weight:600;color:var(--text-2)">Análise da IA</div>
+              <button class="btn btn-ghost btn-sm" id="downloadSuggestionsPdf">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Exportar PDF
+              </button>
+            </div>
+            <div id="suggestionsContent" style="line-height:1.8;color:var(--text-1)">
+              <!-- AI content will be rendered here -->
+            </div>
+          </div>
+
+          <!-- Expenses Table -->
+          <div class="card">
+            <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:16px">Gastos Analisados</div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th>Cartão</th>
+                    <th style="text-align:right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody id="suggestionsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="suggestionsEmpty" class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <div class="empty-title">Nenhuma sugestão gerada ainda</div>
+          <div class="empty-sub">Configure sua API key e clique em "Gerar Sugestões com IA"</div>
         </div>
       </div>
 
@@ -3456,6 +3585,419 @@ renderReviewTable();
 renderSheetTable();
 renderCardView();
 renderTimeline();
+
+/* ═══════════════════════════════════════════════════════════════
+   FE-009 — SUGESTÕES DE ECONOMIA
+═══════════════════════════════════════════════════════════════ */
+let aiSuggestionData = null;
+
+// Load API key from localStorage on init
+const savedApiKey = localStorage.getItem('geminiApiKey');
+if(savedApiKey){
+  document.getElementById('geminiApiKey').value = savedApiKey;
+}
+
+// Save API key
+document.getElementById('saveApiKey').addEventListener('click',()=>{
+  const key = document.getElementById('geminiApiKey').value.trim();
+  if(key){
+    localStorage.setItem('geminiApiKey', key);
+    toast('Chave da API salva com sucesso!', 'success');
+  } else {
+    toast('Por favor, insira uma chave válida', 'error');
+  }
+});
+
+// Build prompt with expense data
+function buildPrompt(){
+  const total = expenses.reduce((s,e)=>s+e.value,0);
+  
+  // Calculate totals by category
+  const byCategory = expenses.reduce((acc,e)=>{
+    acc[e.category] = (acc[e.category]||0) + e.value;
+    return acc;
+  }, {});
+  
+  const categoryText = Object.entries(byCategory)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([cat,val])=>`- ${cat}: R$ ${val.toFixed(2)}`)
+    .join('\n');
+  
+  // Build detailed expenses list
+  const expensesText = expenses
+    .sort((a,b)=>b.date.localeCompare(a.date))
+    .map(e=>`- ${fmtDate(e.date)} - ${e.desc} - ${e.category} - R$ ${e.value.toFixed(2)} - ${e.card}`)
+    .join('\n');
+  
+  const prompt = `Você é um especialista em finanças pessoais. Analise os seguintes gastos do usuário e forneça recomendações de economia.
+
+DADOS DOS GASTOS:
+- Valor total geral: R$ ${total.toFixed(2)}
+
+Gastos por categoria:
+${categoryText}
+
+Detalhamento completo dos gastos:
+${expensesText}
+
+SOLICITAÇÃO DE ANÁLISE:
+Por favor, analise esses gastos e responda seguindo EXATAMENTE este formato de resposta:
+
+===RESUMO_EXECUTIVO===
+[Resumo curto em 2-3 linhas sobre a situação financeira geral]
+
+===DISCREPANCIAS===
+- [Ponto 1]
+- [Ponto 2]
+- [Ponto 3]
+
+===PONTOS_MELHORIA===
+- [Ponto 1]
+- [Ponto 2]
+- [Ponto 3]
+
+===GASTOS_EXORBITANTES===
+Categoria: [Nome da categoria]
+Valor: R$ [valor]
+Justificativa: [Por que é exorbitante]
+Sugestão: [O que fazer]
+
+[Repetir para cada gasto exorbitante identificado]
+
+===ONDE_ECONOMIZAR===
+Categoria: [Nome da categoria]
+Economia potencial: R$ [valor]
+Ação: [Ação específica]
+
+[Repetir para cada oportunidade de economia]
+
+===USO_VALOR_ECONOMIZADO===
+- [Sugestão 1 de uso do valor economizado]
+- [Sugestão 2]
+- [Sugestão 3]
+
+===APORTE_INVESTIMENTOS===
+Valor mensal sugerido: R$ [valor]
+Tipo de investimento: [Tipo - ex: renda fixa, fundos imobiliários, etc.]
+Justificativa: [Por que esse valor e tipo]
+
+===DADOS_CALCULADOS===
+Total gastos: R$ [valor]
+Total economia potencial: R$ [valor]
+Porcentagem economia: [X]%
+
+Responda em português, de forma clara e estruturada, seguindo estritamente o formato acima.`;
+  
+  return prompt;
+}
+
+// Parse AI response
+function parseAIResponse(response){
+  const sections = {};
+  const sectionRegex = /===(\w+)===/g;
+  let match;
+  let lastSection = null;
+  let currentContent = [];
+  
+  const lines = response.split('\n');
+  
+  for(let line of lines){
+    const sectionMatch = line.match(/===(\w+)===/);
+    if(sectionMatch){
+      if(lastSection){
+        sections[lastSection] = currentContent.join('\n').trim();
+      }
+      lastSection = sectionMatch[1];
+      currentContent = [];
+    } else {
+      currentContent.push(line);
+    }
+  }
+  
+  if(lastSection){
+    sections[lastSection] = currentContent.join('\n').trim();
+  }
+  
+  return sections;
+}
+
+// Generate suggestions with AI
+async function generateSuggestions(){
+  const apiKey = document.getElementById('geminiApiKey').value.trim();
+  if(!apiKey){
+    toast('Por favor, configure sua chave da API Gemini primeiro', 'error');
+    return;
+  }
+  
+  if(!expenses.length){
+    toast('Não há gastos para analisar', 'error');
+    return;
+  }
+  
+  const prompt = buildPrompt();
+  
+  // Show loading
+  document.getElementById('suggestionsEmpty').style.display = 'none';
+  document.getElementById('suggestionsResults').style.display = 'none';
+  document.getElementById('suggestionsLoading').style.display = 'block';
+  
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ]
+      })
+    });
+    
+    if(!response.ok){
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Erro na API Gemini');
+    }
+    
+    const data = await response.json();
+    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if(!aiResponse){
+      throw new Error('Resposta vazia da API');
+    }
+    
+    const sections = parseAIResponse(aiResponse);
+    aiSuggestionData = { sections, expenses: [...expenses] };
+    
+    renderSuggestions(sections);
+    
+    document.getElementById('suggestionsLoading').style.display = 'none';
+    document.getElementById('suggestionsResults').style.display = 'block';
+    toast('Sugestões geradas com sucesso!', 'success');
+    
+  } catch(err){
+    console.error('AI generation error:', err);
+    document.getElementById('suggestionsLoading').style.display = 'none';
+    document.getElementById('suggestionsEmpty').style.display = 'block';
+    toast('Erro ao gerar sugestões: ' + err.message, 'error');
+  }
+}
+
+// Render suggestions content
+function renderSuggestions(sections){
+  const content = document.getElementById('suggestionsContent');
+  let html = '';
+  
+  if(sections.RESUMO_EXECUTIVO){
+    html += `<div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">📊 Resumo Executivo</div>
+      <div style="font-size:14px;line-height:1.6">${sections.RESUMO_EXECUTIVO}</div>
+    </div>`;
+  }
+  
+  if(sections.DISCREPANCIAS){
+    html += `<div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">⚠️ Discrepâncias Identificadas</div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.DISCREPANCIAS}</div>
+    </div>`;
+  }
+  
+  if(sections.PONTOS_MELHORIA){
+    html += `<div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">✅ Pontos de Melhoria</div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.PONTOS_MELHORIA}</div>
+    </div>`;
+  }
+  
+  if(sections.GASTOS_EXORBITANTES){
+    html += `<div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">🚨 Gastos Exorbitantes</div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.GASTOS_EXORBITANTES}</div>
+    </div>`;
+  }
+  
+  if(sections.ONDE_ECONOMIZAR){
+    html += `<div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">💰 Onde Economizar</div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.ONDE_ECONOMIZAR}</div>
+    </div>`;
+  }
+  
+  if(sections.USO_VALOR_ECONOMIZADO){
+    html += `<div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">🎯 Uso do Valor Economizado</div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.USO_VALOR_ECONOMIZADO}</div>
+    </div>`;
+  }
+  
+  if(sections.APORTE_INVESTIMENTOS){
+    html += `<div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">📈 Aporte para Investimentos</div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.APORTE_INVESTIMENTOS}</div>
+    </div>`;
+  }
+  
+  if(sections.DADOS_CALCULADOS){
+    html += `<div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">📋 Dados Calculados</div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.DADOS_CALCULADOS}</div>
+    </div>`;
+  }
+  
+  content.innerHTML = html;
+  
+  // Update summary cards
+  const total = expenses.reduce((s,e)=>s+e.value,0);
+  document.getElementById('suggTotal').textContent = fmt(total);
+  
+  // Try to extract economy and investment values from DADOS_CALCULADOS
+  if(sections.DADOS_CALCULADOS){
+    const economyMatch = sections.DADOS_CALCULADOS.match(/Total economia potencial:\s*R\$\s*([\d.,]+)/);
+    if(economyMatch){
+      document.getElementById('suggEconomy').textContent = 'R$ ' + economyMatch[1];
+    }
+    
+    const investMatch = sections.APORTE_INVESTIMENTOS?.match(/Valor mensal sugerido:\s*R\$\s*([\d.,]+)/);
+    if(investMatch){
+      document.getElementById('suggInvestment').textContent = 'R$ ' + investMatch[1];
+    }
+  }
+  
+  // Render expenses table
+  const tbody = document.getElementById('suggestionsTableBody');
+  tbody.innerHTML = expenses.map(e=>`
+    <tr>
+      <td class="td-label td-mono">${fmtDate(e.date)}</td>
+      <td><span style="font-weight:500">${e.desc}</span>${typeBadge(e)}</td>
+      <td>${catBadge(e.category)}</td>
+      <td>${e.card}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;font-size:13px">${fmt(e.value)}</td>
+    </tr>
+  `).join('');
+}
+
+// Generate PDF for suggestions
+function generateSuggestionsPDF(){
+  if(!aiSuggestionData){
+    toast('Gere as sugestões primeiro', 'error');
+    return;
+  }
+  
+  const { sections, expenses: expData } = aiSuggestionData;
+  
+  // Create a temporary container for PDF
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#0f1117;color:#f0f2f8;padding:40px;font-family:Inter,sans-serif;font-size:14px;line-height:1.6';
+  
+  container.innerHTML = `
+    <div style="text-align:center;margin-bottom:30px">
+      <h1 style="font-size:24px;font-weight:700;margin-bottom:8px">Relatório de Sugestões de Economia</h1>
+      <div style="color:#8b93a8;font-size:12px">Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+    </div>
+    
+    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#4f8ef7">📊 Resumo Executivo</h2>
+      <div style="white-space:pre-line">${sections.RESUMO_EXECUTIVO || 'Não disponível'}</div>
+    </div>
+    
+    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#f87171">⚠️ Discrepâncias Identificadas</h2>
+      <div style="white-space:pre-line">${sections.DISCREPANCIAS || 'Não disponível'}</div>
+    </div>
+    
+    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#34d399">✅ Pontos de Melhoria</h2>
+      <div style="white-space:pre-line">${sections.PONTOS_MELHORIA || 'Não disponível'}</div>
+    </div>
+    
+    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#f87171">🚨 Gastos Exorbitantes</h2>
+      <div style="white-space:pre-line">${sections.GASTOS_EXORBITANTES || 'Não disponível'}</div>
+    </div>
+    
+    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#34d399">💰 Onde Economizar</h2>
+      <div style="white-space:pre-line">${sections.ONDE_ECONOMIZAR || 'Não disponível'}</div>
+    </div>
+    
+    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#fbbf24">🎯 Uso do Valor Economizado</h2>
+      <div style="white-space:pre-line">${sections.USO_VALOR_ECONOMIZADO || 'Não disponível'}</div>
+    </div>
+    
+    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#a78bfa">📈 Aporte para Investimentos</h2>
+      <div style="white-space:pre-line">${sections.APORTE_INVESTIMENTOS || 'Não disponível'}</div>
+    </div>
+    
+    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#4f8ef7">📋 Dados Calculados</h2>
+      <div style="white-space:pre-line">${sections.DADOS_CALCULADOS || 'Não disponível'}</div>
+    </div>
+    
+    <h2 style="font-size:18px;font-weight:600;margin:30px 0 16px">Gastos Analisados</h2>
+    <table style="width:100%;border-collapse:collapse;background:#1e2333;border-radius:10px;overflow:hidden">
+      <thead>
+        <tr style="background:#171b26">
+          <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Data</th>
+          <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Descrição</th>
+          <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Categoria</th>
+          <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Cartão</th>
+          <th style="padding:12px;text-align:right;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Valor</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${expData.map(e=>`
+          <tr style="border-bottom:1px solid #1f2638">
+            <td style="padding:10px;font-size:13px">${fmtDate(e.date)}</td>
+            <td style="padding:10px;font-size:13px">${e.desc}</td>
+            <td style="padding:10px;font-size:13px">${e.category}</td>
+            <td style="padding:10px;font-size:13px">${e.card}</td>
+            <td style="padding:10px;text-align:right;font-size:13px;font-family:monospace">${fmt(e.value)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  
+  document.body.appendChild(container);
+  
+  const opt = {
+    margin:       10,
+    filename:     `sugestoes-economia-${new Date().toISOString().split('T')[0]}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f1117' },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  
+  const btn = document.getElementById('downloadSuggestionsPdf');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = 'Gerando PDF...';
+  btn.disabled = true;
+  
+  html2pdf().set(opt).from(container).save().then(() => {
+    document.body.removeChild(container);
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    toast('PDF gerado com sucesso!', 'success');
+  }).catch(err => {
+    console.error('PDF generation error:', err);
+    document.body.removeChild(container);
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    toast('Erro ao gerar PDF', 'error');
+  });
+}
+
+document.getElementById('generateSuggestions').addEventListener('click', generateSuggestions);
+document.getElementById('downloadSuggestionsPdf').addEventListener('click', generateSuggestionsPDF);
 
 // Carregar dados reais da API e re-renderizar tudo
 async function initFromAPI(){
