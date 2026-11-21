@@ -624,7 +624,7 @@
           Linha do Tempo
         </div>
         <div class="nav-item" data-view="suggestions">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
           Sugestões de Economia
         </div>
       </div>
@@ -1603,7 +1603,7 @@
         <!-- Generate Button -->
         <div style="margin-bottom:20px">
           <button class="btn btn-primary" id="generateSuggestions">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
             Gerar Sugestões com IA
           </button>
         </div>
@@ -1617,6 +1617,10 @@
 
         <!-- Suggestions Results -->
         <div id="suggestionsResults" style="display:none">
+          <div style="margin-bottom:20px">
+            <div style="font-size:18px;font-weight:700">Relatório de Sugestões de Economia</div>
+            <div style="font-size:12px;color:var(--text-3)" id="suggestionsDate"></div>
+          </div>
           <!-- Summary Cards -->
           <div class="grid-3" style="margin-bottom:20px">
             <div class="kpi-card">
@@ -1661,7 +1665,7 @@
           <div class="card" style="margin-bottom:20px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
               <div style="font-size:13px;font-weight:600;color:var(--text-2)">Análise da IA</div>
-              <button class="btn btn-ghost btn-sm" id="downloadSuggestionsPdf">
+              <button class="btn btn-ghost btn-sm" id="downloadSuggestionsPdf" data-html2canvas-ignore="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Exportar PDF
               </button>
@@ -3740,68 +3744,197 @@ async function generateSuggestions(){
   }
 }
 
+// ─── Visual rendering helpers for AI sections ───
+const SUGG_T = {
+  card:'#1e2333', border:'#2a3045', text:'#f0f2f8', muted:'#8b93a8',
+  blue:'#4f8ef7', green:'#34d399', red:'#f87171', amber:'#fbbf24', purple:'#a78bfa'
+};
+
+function escHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function inlineMd(s){
+  return escHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+function normKey(s){
+  return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+}
+function getField(f, name){
+  return f ? (f[normKey(name)] || '') : '';
+}
+
+// Render AI text: bullet lists when lines start with -, paragraphs otherwise
+function renderSectionBody(text){
+  const lines = String(text || '').split('\n');
+  if(lines.some(l => /^\s*[-•*]\s+/.test(l))){
+    const items = lines.map(l => l.trim()).filter(l => l && l !== '---')
+      .map(l => l.replace(/^[-•*]\s*/, ''));
+    return `<ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px">${items.map(i => `<li>${inlineMd(i)}</li>`).join('')}</ul>`;
+  }
+  return String(text || '').split(/\n\s*\n/)
+    .map(p => `<div>${inlineMd(p).replace(/\n/g, '<br>')}</div>`).join('');
+}
+
+// Parse "Campo: valor" blocks (items separated by blank lines or repeated "Categoria:")
+function parseAIBlocks(text){
+  return String(text || '')
+    .split(/\n\s*\n|\n(?=Categoria:)/)
+    .map(block => {
+      const fields = {}; let lastKey = null;
+      block.split('\n').forEach(line => {
+        const m = line.match(/^\s*([A-Za-zÀ-ú][^:\n]{0,45}):\s*(.*)$/);
+        if(m && m[2].trim() !== ''){
+          lastKey = normKey(m[1]);
+          fields[lastKey] = m[2].trim();
+        } else if(lastKey && line.trim()){
+          fields[lastKey] += ' ' + line.trim();
+        }
+      });
+      return fields;
+    })
+    .filter(b => Object.keys(b).length);
+}
+
+function suggSection(title, icon, color, bodyHtml){
+  return `<div style="background:${SUGG_T.card};border:1px solid ${SUGG_T.border};border-left:3px solid ${color};border-radius:10px;padding:18px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:15px">${icon}</span>
+      <span style="font-size:12px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:0.6px">${title}</span>
+    </div>
+    <div style="font-size:13px;line-height:1.65;color:${SUGG_T.text}">${bodyHtml}</div>
+  </div>`;
+}
+
+function suggPair(sectionsHtml){
+  if(!sectionsHtml.length) return '';
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:16px">${sectionsHtml.join('')}</div>`;
+}
+
+function suggGridSection(title, icon, color, itemsHtml){
+  return `<div style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:15px">${icon}</span>
+      <span style="font-size:12px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:0.6px">${title}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">${itemsHtml}</div>
+  </div>`;
+}
+
+function expenseAlertCard(f){
+  const cat = getField(f,'categoria') || 'Gasto';
+  const valor = getField(f,'valor');
+  const just = getField(f,'justificativa');
+  const sug = getField(f,'sugestao');
+  return `<div style="background:${SUGG_T.card};border:1px solid ${SUGG_T.border};border-radius:10px;padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:${just||sug?'8px':'0'}">
+      <div style="font-size:13px;font-weight:600;color:${SUGG_T.text};line-height:1.4">${inlineMd(cat)}</div>
+      ${valor ? `<div style="font-size:15px;font-weight:700;color:${SUGG_T.red};font-family:monospace;white-space:nowrap">${inlineMd(valor)}</div>` : ''}
+    </div>
+    ${just ? `<div style="font-size:12px;color:${SUGG_T.muted};line-height:1.5;margin-bottom:8px">${inlineMd(just)}</div>` : ''}
+    ${sug ? `<div style="font-size:12px;line-height:1.5;padding-top:8px;border-top:1px solid ${SUGG_T.border}"><span style="color:${SUGG_T.green};font-weight:600">Sugestão: </span><span style="color:${SUGG_T.text}">${inlineMd(sug)}</span></div>` : ''}
+  </div>`;
+}
+
+function economyCard(f){
+  const cat = getField(f,'categoria') || 'Categoria';
+  const valor = getField(f,'economia potencial');
+  const acao = getField(f,'acao');
+  return `<div style="background:${SUGG_T.card};border:1px solid ${SUGG_T.border};border-radius:10px;padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:${acao?'8px':'0'}">
+      <div style="font-size:13px;font-weight:600;color:${SUGG_T.text};line-height:1.4">${inlineMd(cat)}</div>
+      ${valor ? `<div style="font-size:15px;font-weight:700;color:${SUGG_T.green};font-family:monospace;white-space:nowrap">${inlineMd(valor)}</div>` : ''}
+    </div>
+    ${acao ? `<div style="font-size:12px;color:${SUGG_T.muted};line-height:1.5;padding-top:8px;border-top:1px solid ${SUGG_T.border}"><span style="color:${SUGG_T.green};font-weight:600">Ação: </span><span style="color:${SUGG_T.text}">${inlineMd(acao)}</span></div>` : ''}
+  </div>`;
+}
+
+function kpiChip(label, value, color){
+  return `<div style="background:${SUGG_T.card};border:1px solid ${SUGG_T.border};border-radius:10px;padding:14px">
+    <div style="font-size:11px;color:${SUGG_T.muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${label}</div>
+    <div style="font-size:16px;font-weight:700;color:${color};font-family:monospace">${inlineMd(value)}</div>
+  </div>`;
+}
+
+// Build the visual HTML for all AI sections (used on screen)
+function buildSuggestionsHTML(sections){
+  let html = '';
+
+  if(sections.RESUMO_EXECUTIVO){
+    html += `<div style="background:linear-gradient(135deg,#1e2333 0%,#232a40 100%);border:1px solid ${SUGG_T.border};border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:15px">📊</span>
+        <span style="font-size:12px;font-weight:700;color:${SUGG_T.blue};text-transform:uppercase;letter-spacing:0.6px">Resumo Executivo</span>
+      </div>
+      <div style="font-size:14px;line-height:1.7;color:${SUGG_T.text}">${renderSectionBody(sections.RESUMO_EXECUTIVO)}</div>
+    </div>`;
+  }
+
+  html += suggPair([
+    sections.DISCREPANCIAS ? suggSection('Discrepâncias Identificadas','⚠️',SUGG_T.red,renderSectionBody(sections.DISCREPANCIAS)) : '',
+    sections.PONTOS_MELHORIA ? suggSection('Pontos de Melhoria','✅',SUGG_T.green,renderSectionBody(sections.PONTOS_MELHORIA)) : ''
+  ].filter(Boolean));
+
+  if(sections.GASTOS_EXORBITANTES){
+    const blocks = parseAIBlocks(sections.GASTOS_EXORBITANTES).filter(b => getField(b,'categoria'));
+    html += blocks.length
+      ? suggGridSection('Gastos Exorbitantes','🚨',SUGG_T.red,blocks.map(expenseAlertCard).join(''))
+      : suggSection('Gastos Exorbitantes','🚨',SUGG_T.red,renderSectionBody(sections.GASTOS_EXORBITANTES));
+  }
+
+  if(sections.ONDE_ECONOMIZAR){
+    const blocks = parseAIBlocks(sections.ONDE_ECONOMIZAR).filter(b => getField(b,'categoria'));
+    html += blocks.length
+      ? suggGridSection('Onde Economizar','💰',SUGG_T.green,blocks.map(economyCard).join(''))
+      : suggSection('Onde Economizar','💰',SUGG_T.green,renderSectionBody(sections.ONDE_ECONOMIZAR));
+  }
+
+  const usoAporte = [];
+  if(sections.USO_VALOR_ECONOMIZADO){
+    usoAporte.push(suggSection('Uso do Valor Economizado','🎯',SUGG_T.amber,renderSectionBody(sections.USO_VALOR_ECONOMIZADO)));
+  }
+  if(sections.APORTE_INVESTIMENTOS){
+    const f = parseAIBlocks(sections.APORTE_INVESTIMENTOS)[0] || {};
+    const valor = getField(f,'valor mensal sugerido');
+    const tipo = getField(f,'tipo de investimento') || getField(f,'tipo');
+    const just = getField(f,'justificativa');
+    const body = valor
+      ? `<div style="font-size:22px;font-weight:700;color:${SUGG_T.purple};font-family:monospace;margin-bottom:6px">${inlineMd(valor)}</div>
+         ${tipo ? `<div style="font-size:13px;margin-bottom:8px"><span style="color:${SUGG_T.muted}">Tipo: </span><span style="color:${SUGG_T.text}">${inlineMd(tipo)}</span></div>` : ''}
+         ${just ? `<div style="font-size:12px;color:${SUGG_T.muted};line-height:1.5">${inlineMd(just)}</div>` : ''}`
+      : renderSectionBody(sections.APORTE_INVESTIMENTOS);
+    usoAporte.push(suggSection('Aporte para Investimentos','📈',SUGG_T.purple,body));
+  }
+  html += suggPair(usoAporte);
+
+  if(sections.DADOS_CALCULADOS){
+    const f = parseAIBlocks(sections.DADOS_CALCULADOS)[0] || {};
+    const chips = [];
+    const tg = getField(f,'total gastos');
+    const te = getField(f,'total economia potencial');
+    const pc = getField(f,'porcentagem economia');
+    if(tg) chips.push(kpiChip('Total Gasto', tg, SUGG_T.blue));
+    if(te) chips.push(kpiChip('Economia Potencial', te, SUGG_T.green));
+    if(pc) chips.push(kpiChip('% Economia', pc, SUGG_T.amber));
+    html += chips.length
+      ? `<div style="margin-bottom:8px">
+           <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+             <span style="font-size:15px">📋</span>
+             <span style="font-size:12px;font-weight:700;color:${SUGG_T.blue};text-transform:uppercase;letter-spacing:0.6px">Dados Calculados</span>
+           </div>
+           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">${chips.join('')}</div>
+         </div>`
+      : suggSection('Dados Calculados','📋',SUGG_T.blue,renderSectionBody(sections.DADOS_CALCULADOS));
+  }
+
+  return html;
+}
+
 // Render suggestions content
 function renderSuggestions(sections){
   const content = document.getElementById('suggestionsContent');
-  let html = '';
-  
-  if(sections.RESUMO_EXECUTIVO){
-    html += `<div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">📊 Resumo Executivo</div>
-      <div style="font-size:14px;line-height:1.6">${sections.RESUMO_EXECUTIVO}</div>
-    </div>`;
-  }
-  
-  if(sections.DISCREPANCIAS){
-    html += `<div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">⚠️ Discrepâncias Identificadas</div>
-      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.DISCREPANCIAS}</div>
-    </div>`;
-  }
-  
-  if(sections.PONTOS_MELHORIA){
-    html += `<div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">✅ Pontos de Melhoria</div>
-      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.PONTOS_MELHORIA}</div>
-    </div>`;
-  }
-  
-  if(sections.GASTOS_EXORBITANTES){
-    html += `<div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">🚨 Gastos Exorbitantes</div>
-      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.GASTOS_EXORBITANTES}</div>
-    </div>`;
-  }
-  
-  if(sections.ONDE_ECONOMIZAR){
-    html += `<div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">💰 Onde Economizar</div>
-      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.ONDE_ECONOMIZAR}</div>
-    </div>`;
-  }
-  
-  if(sections.USO_VALOR_ECONOMIZADO){
-    html += `<div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">🎯 Uso do Valor Economizado</div>
-      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.USO_VALOR_ECONOMIZADO}</div>
-    </div>`;
-  }
-  
-  if(sections.APORTE_INVESTIMENTOS){
-    html += `<div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">📈 Aporte para Investimentos</div>
-      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.APORTE_INVESTIMENTOS}</div>
-    </div>`;
-  }
-  
-  if(sections.DADOS_CALCULADOS){
-    html += `<div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">📋 Dados Calculados</div>
-      <div style="font-size:14px;line-height:1.6;white-space:pre-line">${sections.DADOS_CALCULADOS}</div>
-    </div>`;
-  }
-  
-  content.innerHTML = html;
+  content.innerHTML = buildSuggestionsHTML(sections);
+  document.getElementById('suggestionsDate').textContent =
+    'Gerado em ' + new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
   
   // Update summary cards
   const total = expenses.reduce((s,e)=>s+e.value,0);
@@ -3833,92 +3966,19 @@ function renderSuggestions(sections){
   `).join('');
 }
 
-// Generate PDF for suggestions
+// Generate PDF for suggestions — exports the visible results (KPIs, AI cards and expense table)
 function generateSuggestionsPDF(){
   if(!aiSuggestionData){
     toast('Gere as sugestões primeiro', 'error');
     return;
   }
-  
-  const { sections, expenses: expData } = aiSuggestionData;
-  
-  // Create a temporary container for PDF
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#0f1117;color:#f0f2f8;padding:40px;font-family:Inter,sans-serif;font-size:14px;line-height:1.6';
-  
-  container.innerHTML = `
-    <div style="text-align:center;margin-bottom:30px">
-      <h1 style="font-size:24px;font-weight:700;margin-bottom:8px">Relatório de Sugestões de Economia</h1>
-      <div style="color:#8b93a8;font-size:12px">Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
-    </div>
-    
-    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#4f8ef7">📊 Resumo Executivo</h2>
-      <div style="white-space:pre-line">${sections.RESUMO_EXECUTIVO || 'Não disponível'}</div>
-    </div>
-    
-    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#f87171">⚠️ Discrepâncias Identificadas</h2>
-      <div style="white-space:pre-line">${sections.DISCREPANCIAS || 'Não disponível'}</div>
-    </div>
-    
-    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#34d399">✅ Pontos de Melhoria</h2>
-      <div style="white-space:pre-line">${sections.PONTOS_MELHORIA || 'Não disponível'}</div>
-    </div>
-    
-    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#f87171">🚨 Gastos Exorbitantes</h2>
-      <div style="white-space:pre-line">${sections.GASTOS_EXORBITANTES || 'Não disponível'}</div>
-    </div>
-    
-    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#34d399">💰 Onde Economizar</h2>
-      <div style="white-space:pre-line">${sections.ONDE_ECONOMIZAR || 'Não disponível'}</div>
-    </div>
-    
-    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#fbbf24">🎯 Uso do Valor Economizado</h2>
-      <div style="white-space:pre-line">${sections.USO_VALOR_ECONOMIZADO || 'Não disponível'}</div>
-    </div>
-    
-    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#a78bfa">📈 Aporte para Investimentos</h2>
-      <div style="white-space:pre-line">${sections.APORTE_INVESTIMENTOS || 'Não disponível'}</div>
-    </div>
-    
-    <div style="background:#1e2333;border:1px solid #2a3045;border-radius:10px;padding:20px;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#4f8ef7">📋 Dados Calculados</h2>
-      <div style="white-space:pre-line">${sections.DADOS_CALCULADOS || 'Não disponível'}</div>
-    </div>
-    
-    <h2 style="font-size:18px;font-weight:600;margin:30px 0 16px">Gastos Analisados</h2>
-    <table style="width:100%;border-collapse:collapse;background:#1e2333;border-radius:10px;overflow:hidden">
-      <thead>
-        <tr style="background:#171b26">
-          <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Data</th>
-          <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Descrição</th>
-          <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Categoria</th>
-          <th style="padding:12px;text-align:left;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Cartão</th>
-          <th style="padding:12px;text-align:right;font-size:12px;font-weight:600;color:#50586e;border-bottom:1px solid #2a3045">Valor</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${expData.map(e=>`
-          <tr style="border-bottom:1px solid #1f2638">
-            <td style="padding:10px;font-size:13px">${fmtDate(e.date)}</td>
-            <td style="padding:10px;font-size:13px">${e.desc}</td>
-            <td style="padding:10px;font-size:13px">${e.category}</td>
-            <td style="padding:10px;font-size:13px">${e.card}</td>
-            <td style="padding:10px;text-align:right;font-size:13px;font-family:monospace">${fmt(e.value)}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-  
-  document.body.appendChild(container);
-  
+
+  const element = document.getElementById('suggestionsResults');
+  if(!element){
+    toast('Erro ao gerar PDF', 'error');
+    return;
+  }
+
   const opt = {
     margin:       10,
     filename:     `sugestoes-economia-${new Date().toISOString().split('T')[0]}.pdf`,
@@ -3926,20 +3986,18 @@ function generateSuggestionsPDF(){
     html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f1117' },
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
-  
+
   const btn = document.getElementById('downloadSuggestionsPdf');
   const originalText = btn.innerHTML;
   btn.innerHTML = 'Gerando PDF...';
   btn.disabled = true;
-  
-  html2pdf().set(opt).from(container).save().then(() => {
-    document.body.removeChild(container);
+
+  html2pdf().set(opt).from(element).save().then(() => {
     btn.innerHTML = originalText;
     btn.disabled = false;
     toast('PDF gerado com sucesso!', 'success');
   }).catch(err => {
     console.error('PDF generation error:', err);
-    document.body.removeChild(container);
     btn.innerHTML = originalText;
     btn.disabled = false;
     toast('Erro ao gerar PDF', 'error');
