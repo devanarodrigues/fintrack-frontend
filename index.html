@@ -2166,6 +2166,8 @@ let expSort = { col:'date', dir:'desc' };
 let expFilter = { search:'', cat:'', card:'' };
 let editingId = null;
 let deletingId = null;
+let suggestionsMonth = '';
+let suggestionsMonthTouched = false;
 
 /* Review state for FE-004 */
 let reviewTransactions = [];
@@ -3582,7 +3584,6 @@ renderTimeline();
    FE-009 — SUGESTÕES DE ECONOMIA
 ═══════════════════════════════════════════════════════════════ */
 let aiSuggestionData = null;
-let suggestionsMonth = '';
 
 // Months available in the expenses data, most recent first
 function populateSuggestionsMonths(){
@@ -3595,7 +3596,7 @@ function populateSuggestionsMonths(){
     months.map(m => `<option value="${m}">${new Date(m+'-01T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</option>`).join('');
   const cur = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
   const def = months.includes(cur) ? cur : (months[0] || 'all');
-  sel.value = (prev === 'all' || months.includes(prev)) ? prev : def;
+  sel.value = suggestionsMonthTouched && (prev === 'all' || months.includes(prev)) ? prev : def;
   suggestionsMonth = sel.value;
 }
 
@@ -3606,6 +3607,7 @@ function getSuggestionsExpenses(){
 
 document.getElementById('suggestionsMonth').addEventListener('change', e => {
   suggestionsMonth = e.target.value;
+  suggestionsMonthTouched = true;
 });
 
 // Build prompt with expense data
