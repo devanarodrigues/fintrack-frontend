@@ -1601,11 +1601,15 @@
         <div class="page-sub">Análise IA dos seus gastos com recomendações personalizadas</div>
 
         <!-- Generate Button -->
-        <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px">
           <button class="btn btn-primary" id="generateSuggestions">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
             Gerar Sugestões com IA
           </button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label class="form-label" for="suggestionsMonth" style="margin:0">Mês da análise:</label>
+            <select class="form-control" id="suggestionsMonth" style="width:auto;min-width:170px"></select>
+          </div>
         </div>
 
         <!-- Loading State -->
@@ -2013,6 +2017,7 @@ async function loadExpensesFromAPI() {
     populateCardCategoryFilter();
     populateTimelineFilters();
     populateCardSelector();
+    populateSuggestionsMonths();
 
     renderExpenseTable();
     renderHomeRecent();
@@ -3561,6 +3566,7 @@ populateSheetFilters();
 populateCardCategoryFilter();
 populateTimelineFilters();
 populateCardSelector();
+populateSuggestionsMonths();
 
 // Card selector is now dynamically populated in populateCardSelector()
 
@@ -3576,13 +3582,39 @@ renderTimeline();
    FE-009 — SUGESTÕES DE ECONOMIA
 ═══════════════════════════════════════════════════════════════ */
 let aiSuggestionData = null;
+let suggestionsMonth = '';
+
+// Months available in the expenses data, most recent first
+function populateSuggestionsMonths(){
+  const sel = document.getElementById('suggestionsMonth');
+  if(!sel) return;
+  const months = [...new Set(expenses.map(e => (e.date || '').slice(0,7)).filter(Boolean))]
+    .sort().reverse();
+  const prev = sel.value || suggestionsMonth;
+  sel.innerHTML = '<option value="all">Todos os meses</option>' +
+    months.map(m => `<option value="${m}">${new Date(m+'-01T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</option>`).join('');
+  const cur = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const def = months.includes(cur) ? cur : (months[0] || 'all');
+  sel.value = (prev === 'all' || months.includes(prev)) ? prev : def;
+  suggestionsMonth = sel.value;
+}
+
+function getSuggestionsExpenses(){
+  if(!suggestionsMonth || suggestionsMonth === 'all') return expenses;
+  return expenses.filter(e => (e.date || '').startsWith(suggestionsMonth));
+}
+
+document.getElementById('suggestionsMonth').addEventListener('change', e => {
+  suggestionsMonth = e.target.value;
+});
 
 // Build prompt with expense data
 function buildPrompt(){
-  const total = expenses.reduce((s,e)=>s+e.value,0);
+  const analysisExpenses = getSuggestionsExpenses();
+  const total = analysisExpenses.reduce((s,e)=>s+e.value,0);
   
   // Calculate totals by category
-  const byCategory = expenses.reduce((acc,e)=>{
+  const byCategory = analysisExpenses.reduce((acc,e)=>{
     acc[e.category] = (acc[e.category]||0) + e.value;
     return acc;
   }, {});
@@ -3593,7 +3625,7 @@ function buildPrompt(){
     .join('\n');
   
   // Build detailed expenses list
-  const expensesText = expenses
+  const expensesText = analysisExpenses
     .sort((a,b)=>b.date.localeCompare(a.date))
     .map(e=>`- ${fmtDate(e.date)} - ${e.desc} - ${e.category} - R$ ${e.value.toFixed(2)} - ${e.card}`)
     .join('\n');
@@ -3692,8 +3724,9 @@ function parseAIResponse(response){
 
 // Generate suggestions with AI
 async function generateSuggestions(){
-  if(!expenses.length){
-    toast('Não há gastos para analisar', 'error');
+  const analysisExpenses = getSuggestionsExpenses();
+  if(!analysisExpenses.length){
+    toast(suggestionsMonth === 'all' || !suggestionsMonth ? 'Não há gastos para analisar' : 'Não há gastos no mês selecionado', 'error');
     return;
   }
   
@@ -3728,7 +3761,7 @@ async function generateSuggestions(){
     }
     
     const sections = parseAIResponse(aiResponse);
-    aiSuggestionData = { sections, expenses: [...expenses] };
+    aiSuggestionData = { sections, expenses: [...analysisExpenses] };
     
     renderSuggestions(sections);
     
@@ -3931,13 +3964,14 @@ function buildSuggestionsHTML(sections){
 
 // Render suggestions content
 function renderSuggestions(sections){
+  const expList = (aiSuggestionData && aiSuggestionData.expenses) || getSuggestionsExpenses();
   const content = document.getElementById('suggestionsContent');
   content.innerHTML = buildSuggestionsHTML(sections);
   document.getElementById('suggestionsDate').textContent =
     'Gerado em ' + new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
   
   // Update summary cards
-  const total = expenses.reduce((s,e)=>s+e.value,0);
+  const total = expList.reduce((s,e)=>s+e.value,0);
   document.getElementById('suggTotal').textContent = fmt(total);
   
   // Try to extract economy and investment values from DADOS_CALCULADOS
@@ -3955,7 +3989,7 @@ function renderSuggestions(sections){
   
   // Render expenses table
   const tbody = document.getElementById('suggestionsTableBody');
-  tbody.innerHTML = expenses.map(e=>`
+  tbody.innerHTML = expList.map(e=>`
     <tr>
       <td class="td-label td-mono">${fmtDate(e.date)}</td>
       <td><span style="font-weight:500">${e.desc}</span>${typeBadge(e)}</td>
