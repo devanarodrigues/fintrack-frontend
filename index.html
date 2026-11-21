@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- api-integration.js integrado diretamente no bundle abaixo -->
   <style>
     /* ─── DESIGN TOKENS ─────────────────────────────────────── */
     :root {
@@ -137,7 +138,6 @@
     }
     .topbar-left { display: flex; align-items: center; gap: 12px; }
     .topbar-title { font-size: 15px; font-weight: 600; }
-    .topbar-subtitle { font-size: 12px; color: var(--text-3); }
     .topbar-right { display: flex; align-items: center; gap: 8px; }
 
     .content { flex: 1; overflow-y: auto; padding: 24px; }
@@ -472,20 +472,23 @@
     .mini-bar.current { opacity: 1; }
 
     /* ─── TIMELINE CHART (FE-008) ────────────────────────────── */
-    .timeline-bar {
-      flex: 1;
-      border-radius: 4px 4px 0 0;
-      background: var(--accent);
-      min-height: 4px;
-      transition: all .2s;
+    .timeline-chart-container {
       position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    .timeline-line-chart {
+      width: 100%;
+      height: 100%;
+    }
+    .timeline-point {
       cursor: pointer;
+      transition: all .2s;
     }
-    .timeline-bar:hover {
-      background: var(--accent-dim);
-      transform: scaleY(1.05);
+    .timeline-point:hover {
+      transform: scale(1.3);
     }
-    .timeline-bar-label {
+    .timeline-point-label {
       position: absolute;
       bottom: -24px;
       left: 50%;
@@ -494,7 +497,7 @@
       color: var(--text-3);
       white-space: nowrap;
     }
-    .timeline-bar-value {
+    .timeline-point-value {
       position: absolute;
       top: -20px;
       left: 50%;
@@ -505,8 +508,9 @@
       white-space: nowrap;
       opacity: 0;
       transition: opacity .2s;
+      pointer-events: none;
     }
-    .timeline-bar:hover .timeline-bar-value {
+    .timeline-point:hover .timeline-point-value {
       opacity: 1;
     }
 
@@ -543,6 +547,16 @@
       .table-toolbar { flex-direction: column; align-items: stretch; }
       .search-wrap { max-width: none; }
       .content { padding: 16px; }
+      /* Improve mobile menu button */
+      #menuToggle {
+        padding: 10px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+      }
+      #menuToggle svg {
+        width: 24px !important;
+        height: 24px !important;
+      }
     }
 
     /* ─── SCROLLBAR ──────────────────────────────────────────── */
@@ -632,13 +646,9 @@
         <button class="btn btn-ghost btn-icon" id="menuToggle" style="display:none" aria-label="Menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <div>
-          <div class="topbar-title" id="pageTitle">Dashboard</div>
-          <div class="topbar-subtitle" id="pageSubtitle">Resumo financeiro do mês atual</div>
-        </div>
+        <div class="topbar-title" id="pageTitle">Dashboard</div>
       </div>
       <div class="topbar-right">
-        <span style="font-size:12px;color:var(--text-3);font-family:var(--mono)" id="currentDate"></span>
         <button class="btn btn-primary btn-sm" id="quickAddBtn" data-view="expenses">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Novo Gasto
@@ -666,9 +676,9 @@
             </div>
             <div>
               <div class="kpi-label">Total Gasto</div>
-              <div class="kpi-value" id="kpi-total">R$ 4.820</div>
+              <div class="kpi-value" id="kpi-total">R$ 0,00</div>
             </div>
-            <div class="kpi-foot">+12% em relação ao mês anterior</div>
+            <div class="kpi-foot" id="kpi-total-foot">—</div>
           </div>
 
           <div class="kpi-card">
@@ -680,9 +690,9 @@
             </div>
             <div>
               <div class="kpi-label">Cartão com Maior Participação</div>
-              <div class="kpi-value" style="font-size:18px">Nubank</div>
+              <div class="kpi-value" style="font-size:18px" id="kpi-top-card">—</div>
             </div>
-            <div class="kpi-foot">68% dos gastos do mês</div>
+            <div class="kpi-foot" id="kpi-top-card-foot">—</div>
           </div>
 
           <div class="kpi-card">
@@ -694,9 +704,9 @@
             </div>
             <div>
               <div class="kpi-label">Maior Gasto</div>
-              <div class="kpi-value" style="font-size:18px">R$ 1.200</div>
+              <div class="kpi-value" style="font-size:18px" id="kpi-biggest">R$ 0,00</div>
             </div>
-            <div class="kpi-foot">MacBook Pro — 26/ago</div>
+            <div class="kpi-foot" id="kpi-biggest-foot">—</div>
           </div>
 
           <div class="kpi-card">
@@ -708,9 +718,9 @@
             </div>
             <div>
               <div class="kpi-label">Parcelas Futuras</div>
-              <div class="kpi-value">R$ 2.340</div>
+              <div class="kpi-value" id="kpi-future">R$ 0,00</div>
             </div>
-            <div class="kpi-foot">8 compras parceladas ativas</div>
+            <div class="kpi-foot" id="kpi-future-foot">—</div>
           </div>
         </div>
 
@@ -725,18 +735,18 @@
             </div>
             <div>
               <div class="kpi-label">Despesas Fixas</div>
-              <div class="kpi-value">R$ 1.650</div>
+              <div class="kpi-value" id="kpi-fixed">R$ 0,00</div>
             </div>
-            <div class="kpi-foot">Aluguel, assinaturas, plano de saúde</div>
+            <div class="kpi-foot" id="kpi-fixed-foot">—</div>
           </div>
 
           <div class="card" style="display:flex;flex-direction:column;gap:12px">
             <div style="display:flex;align-items:center;justify-content:space-between">
               <div>
                 <div class="kpi-label">Previsão — Próximo Mês</div>
-                <div class="kpi-value" style="font-size:20px;margin-top:4px">R$ 5.190</div>
+                <div class="kpi-value" style="font-size:20px;margin-top:4px" id="kpi-forecast">R$ 0,00</div>
               </div>
-              <span class="badge c-blue">+7,7%</span>
+              <span class="badge c-blue" id="kpi-forecast-badge">—</span>
             </div>
             <div class="kpi-foot" style="margin-bottom:4px">Baseado nos gastos fixos e parcelas futuras</div>
             <div class="mini-bar-wrap" id="miniChart"></div>
@@ -893,11 +903,9 @@
                 <label class="form-label">Cartão</label>
                 <select class="form-control" id="uploadCard">
                   <option value="">Selecione o cartão</option>
-                  <option>Nubank</option>
                   <option>Itaú</option>
-                  <option>Bradesco</option>
-                  <option>Inter</option>
-                  <option>C6 Bank</option>
+                  <option>Mercado Pago</option>
+                  <option>Dinheiro</option>
                 </select>
               </div>
               <div class="form-row">
@@ -1211,12 +1219,7 @@
           <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:12px">Selecione o Cartão</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap" id="cardSelector">
             <button class="chip card-select-btn active" data-card="">Todos</button>
-            <button class="chip card-select-btn" data-card="Nubank">Nubank</button>
-            <button class="chip card-select-btn" data-card="Itaú">Itaú</button>
-            <button class="chip card-select-btn" data-card="Bradesco">Bradesco</button>
-            <button class="chip card-select-btn" data-card="Inter">Inter</button>
-            <button class="chip card-select-btn" data-card="C6 Bank">C6 Bank</button>
-            <button class="chip card-select-btn" data-card="Dinheiro">Dinheiro</button>
+            <!-- Cards will be populated dynamically -->
           </div>
         </div>
 
@@ -1577,11 +1580,8 @@
         <!-- Timeline chart -->
         <div class="card" style="margin-bottom:20px">
           <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:16px">Evolução Temporal</div>
-          <div id="timelineChart" style="height:300px;display:flex;align-items:flex-end;gap:8px;padding:20px 0;border-bottom:1px solid var(--border-soft)">
-            <!-- Chart bars will be rendered here -->
-          </div>
-          <div id="timelineLabels" style="display:flex;gap:8px;margin-top:8px;justify-content:space-between">
-            <!-- Month labels will be rendered here -->
+          <div id="timelineChart" style="height:300px;padding:20px">
+            <!-- Chart will be rendered here -->
           </div>
         </div>
 
@@ -1803,8 +1803,8 @@
         <input type="text" class="form-control" id="f-notes" placeholder="Opcional" />
       </div>
       <div class="form-actions">
-        <button class="btn btn-ghost" id="cancelModal">Cancelar</button>
-        <button class="btn btn-primary" id="saveExpense">Salvar</button>
+        <button type="button" class="btn btn-ghost" id="cancelModal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="saveExpense">Salvar</button>
       </div>
     </div>
   </div>
@@ -1888,6 +1888,17 @@
 /* ─── UTILS ──────────────────────────────────────────────────────────── */
 const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
 const fmtDate = d => { if(!d) return '—'; const [y,m,dd] = d.split('-'); return `${dd}/${m}/${y}`; };
+const formatDateForAPI = d => {
+  if(!d) return today();
+  // Se já estiver no formato ISO (YYYY-MM-DD), retorna como está
+  if(d.match(/^\d{4}-\d{2}-\d{2}$/)) return d;
+  // Se estiver no formato DD/MM/YYYY, converte para YYYY-MM-DD
+  if(d.includes('/')) {
+    const [dd, m, y] = d.split('/');
+    return `${y}-${m}-${dd}`;
+  }
+  return d;
+};
 const today = () => new Date().toISOString().split('T')[0];
 const uid = () => Math.random().toString(36).slice(2,10);
 
@@ -1907,14 +1918,14 @@ function toast(msg, type='info', dur=3000){
 
 /* ─── ROUTER ─────────────────────────────────────────────────────────── */
 const routes = {
-  home:        { title:'Dashboard',                sub:'Resumo financeiro do mês atual' },
-  expenses:    { title:'Gerenciar Gastos',         sub:'Lançamento e edição de transações' },
-  upload:      { title:'Upload de Fatura',         sub:'Envio de faturas PDF para processamento' },
-  review:      { title:'Revisão de Transações',    sub:'Revise e valide as transações extraídas' },
-  spreadsheet: { title:'Planilha Financeira',      sub:'Visualização consolidada de gastos' },
-  cardview:    { title:'Visão por Cartão',          sub:'Análise detalhada por cartão' },
-  reports:     { title:'Relatórios Financeiros',   sub:'Geração de relatórios em PDF' },
-  timeline:    { title:'Linha do Tempo',           sub:'Análise histórica de gastos' },
+  home:        { title:'Dashboard' },
+  expenses:    { title:'Gerenciar Gastos' },
+  upload:      { title:'Upload de Fatura' },
+  review:      { title:'Revisão de Transações' },
+  spreadsheet: { title:'Planilha Financeira' },
+  cardview:    { title:'Visão por Cartão' },
+  reports:     { title:'Relatórios Financeiros' },
+  timeline:    { title:'Linha do Tempo' },
 };
 
 function showView(name){
@@ -1925,8 +1936,8 @@ function showView(name){
   const ni = document.querySelector(`[data-view="${name}"]`);
   if(ni) ni.classList.add('active');
   const r = routes[name] || {};
-  document.getElementById('pageTitle').textContent = r.title || name;
-  document.getElementById('pageSubtitle').textContent = r.sub || '';
+  const pageTitle = document.getElementById('pageTitle');
+  if(pageTitle) pageTitle.textContent = r.title || name;
   closeSidebar();
 }
 
@@ -1942,7 +1953,10 @@ document.getElementById('menuToggle').addEventListener('click',()=>{
 document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
 // Show hamburger on mobile
 function checkMobile(){
-  document.getElementById('menuToggle').style.display = window.innerWidth<=768?'flex':'none';
+  const menuToggle = document.getElementById('menuToggle');
+  if(menuToggle) {
+    menuToggle.style.display = window.innerWidth<=768?'flex':'none';
+  }
 }
 window.addEventListener('resize', checkMobile); checkMobile();
 
@@ -1955,33 +1969,207 @@ document.querySelectorAll('[data-view]').forEach(el=>{
 const now = new Date();
 const months = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 document.getElementById('monthLabel').textContent = `${months[now.getMonth()]} de ${now.getFullYear()}`;
-document.getElementById('currentDate').textContent = now.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
 // Set default date in form
 document.getElementById('f-date').value = today();
 // Set default month in upload
 document.getElementById('uploadMonth').value = now.getMonth()+1;
 
 /* ═══════════════════════════════════════════════════════════════
-   EXPENSE SERVICE — in-memory CRUD
+   API CONFIGURAÇÃO — Integração com BFF
+═══════════════════════════════════════════════════════════════ */
+// const API_URL = 'http://localhost:5000/api/v1';
+const API_URL = 'https://fintrack-bff.vercel.app/api/v1';
+
+
+/* ═══════════════════════════════════════════════════════════════
+   API FUNCTIONS — Integração com BFF
+═══════════════════════════════════════════════════════════════ */
+async function loadExpensesFromAPI() {
+  try {
+    console.log('=== INICIANDO CARREGAMENTO DE GASTOS ===');
+    console.log('URL da API:', `${API_URL}/expenses?limit=100`);
+    
+    const response = await fetch(`${API_URL}/expenses?limit=100`);
+    console.log('Resposta recebida - Status:', response.status, response.statusText);
+    
+    if(!response.ok) {
+      const errorText = await response.text();
+      console.error('ERRO NA RESPOSTA:', errorText);
+      throw new Error(`HTTP ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Dados recebidos da API:', data);
+    
+    // Mapear dados da API para o formato local
+    expenses = (data.items || []).map(item => ({
+      id: item.id,
+      desc: item.descricao,
+      value: parseFloat(item.valor_parcela),
+      date: item.data,
+      card: item.cartao_nome,
+      category: item.categoria,
+      type: item.tipo === 'parcelado' ? 'installment' : item.tipo === 'fixo' ? 'fixed' : 'single',
+      installCurr: item.parcela_atual,
+      installTotal: item.total_parcelas,
+      notes: item.observacao || ''
+    }));
+
+    console.log('Gastos mapeados:', expenses.length, 'itens');
+    console.log('Lista de gastos:', expenses);
+
+    // Sincronizar também em window.expenses (usado por api-integration.js externo)
+    window.expenses = expenses;
+
+    // Repopular filtros com cartões reais
+    populateFilters();
+    populateSheetFilters();
+    populateCardCategoryFilter();
+    populateTimelineFilters();
+    populateCardSelector();
+
+    renderExpenseTable();
+    renderHomeRecent();
+    
+    console.log('=== CARREGAMENTO CONCLUÍDO COM SUCESSO ===');
+  } catch (error) {
+    console.error('=== ERRO NO CARREGAMENTO ===');
+    console.error('Erro detalhado:', error);
+    console.error('Stack trace:', error.stack);
+    toast('Erro ao carregar dados da API', 'error');
+    throw error; // Re-throw para permitir tratamento pelo chamador
+  }
+}
+
+async function saveExpenseToAPI(expenseData) {
+  try {
+    console.log('=== INICIANDO SALVAMENTO DE GASTO ===');
+    console.log('Dados recebidos:', expenseData);
+    console.log('URL da API:', `${API_URL}/expenses`);
+    
+    // Mapear formato local para formato da API
+    const apiData = {
+      data: expenseData.date,
+      cartao_nome: expenseData.card,
+      categoria: expenseData.category,
+      descricao: expenseData.desc,
+      valor_parcela: parseFloat(expenseData.value), // Garantir que seja número
+      tipo: expenseData.type === 'installment' ? 'parcelado' : expenseData.type === 'fixed' ? 'fixo' : 'normal',
+      parcela_atual: parseInt(expenseData.installCurr || 1),
+      total_parcelas: parseInt(expenseData.installTotal || 1),
+      origem: 'manual',
+      observacao: expenseData.notes || ''
+    };
+    
+    console.log('Dados formatados para API:', apiData);
+    console.log('JSON stringificado:', JSON.stringify(apiData));
+    
+    console.log('Fazendo requisição POST para:', `${API_URL}/expenses`);
+    const response = await fetch(`${API_URL}/expenses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(apiData)
+    });
+    
+    console.log('Resposta recebida - Status:', response.status, response.statusText);
+    console.log('Headers da resposta:', response.headers);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('ERRO NA RESPOSTA DA API:', errorText);
+      throw new Error(`Erro ao salvar gasto: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('Gasto salvo com sucesso - Resultado:', result);
+    console.log('=== SALVAMENTO CONCLUÍDO ===');
+    return result;
+  } catch (error) {
+    console.error('=== ERRO NO SALVAMENTO ===');
+    console.error('Erro detalhado:', error);
+    console.error('Stack trace:', error.stack);
+    throw error;
+  }
+}
+
+async function updateExpenseInAPI(id, expenseData) {
+  try {
+    console.log('Atualizando gasto na API, ID:', id, 'dados:', expenseData);
+    
+    const apiData = {
+      data: expenseData.date,
+      cartao_nome: expenseData.card,
+      categoria: expenseData.category,
+      descricao: expenseData.desc,
+      valor_parcela: parseFloat(expenseData.value), // Garantir que seja número
+      tipo: expenseData.type === 'installment' ? 'parcelado' : expenseData.type === 'fixed' ? 'fixo' : 'normal',
+      parcela_atual: parseInt(expenseData.installCurr || 1),
+      total_parcelas: parseInt(expenseData.installTotal || 1),
+      observacao: expenseData.notes || ''
+    };
+    
+    console.log('Dados formatados para atualização:', apiData);
+    
+    const response = await fetch(`${API_URL}/expenses/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(apiData)
+    });
+    
+    console.log('Resposta da atualização:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Erro na resposta da atualização:', errorText);
+      throw new Error(`Erro ao atualizar gasto: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('Gasto atualizado com sucesso:', result);
+    return result;
+  } catch (error) {
+    console.error('Erro ao atualizar gasto:', error);
+    throw error;
+  }
+}
+
+async function deleteExpenseFromAPI(id) {
+  try {
+    console.log('Deletando gasto da API, ID:', id);
+    
+    const response = await fetch(`${API_URL}/expenses/${id}`, {
+      method: 'DELETE'
+    });
+    
+    console.log('Resposta da deleção:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Erro na resposta da deleção:', errorText);
+      throw new Error(`Erro ao deletar gasto: ${response.status} - ${errorText}`);
+    }
+    
+    console.log('Gasto deletado com sucesso');
+    return true;
+  } catch (error) {
+    console.error('Erro ao deletar gasto:', error);
+    throw error;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EXPENSE SERVICE — Integração com API BFF
 ═══════════════════════════════════════════════════════════════ */
 const CATEGORIES = ['Alimentação','Transporte','Moradia','Saúde','Lazer','Educação','Tecnologia','Vestuário','Assinatura','Outros'];
-const CARDS = ['Nubank','Itaú','Bradesco','Inter','C6 Bank','Dinheiro'];
+// CARDS é derivado dinamicamente dos dados carregados da API
+function getUniqueCards(){ return [...new Set(expenses.map(e=>e.card))].filter(Boolean).sort(); }
 
-// Seed data
-let expenses = [
-  {id:uid(), desc:'Supermercado Extra',       value:320.50,  date:'2026-08-28', card:'Nubank',    category:'Alimentação',  type:'single',     notes:''},
-  {id:uid(), desc:'Uber',                      value:28.90,   date:'2026-08-27', card:'Itaú',      category:'Transporte',   type:'single',     notes:''},
-  {id:uid(), desc:'Netflix',                   value:44.90,   date:'2026-08-25', card:'Nubank',    category:'Assinatura',   type:'fixed',      notes:''},
-  {id:uid(), desc:'MacBook Pro M3',            value:1200.00, date:'2026-08-26', card:'Nubank',    category:'Tecnologia',   type:'installment', installCurr:1, installTotal:12, notes:''},
-  {id:uid(), desc:'Farmácia',                  value:67.30,   date:'2026-08-24', card:'Bradesco',  category:'Saúde',        type:'single',     notes:''},
-  {id:uid(), desc:'Aluguel',                   value:1800.00, date:'2026-08-05', card:'Dinheiro',  category:'Moradia',      type:'fixed',      notes:''},
-  {id:uid(), desc:'iFood',                     value:52.00,   date:'2026-08-23', card:'Inter',     category:'Alimentação',  type:'single',     notes:''},
-  {id:uid(), desc:'Academia',                  value:89.90,   date:'2026-08-01', card:'Nubank',    category:'Saúde',        type:'fixed',      notes:''},
-  {id:uid(), desc:'Posto de Gasolina',         value:180.00,  date:'2026-08-20', card:'C6 Bank',   category:'Transporte',   type:'single',     notes:''},
-  {id:uid(), desc:'Curso de Programação',      value:199.00,  date:'2026-08-15', card:'Nubank',    category:'Educação',     type:'installment', installCurr:2, installTotal:6, notes:''},
-  {id:uid(), desc:'Restaurante',               value:95.50,   date:'2026-08-18', card:'Itaú',      category:'Alimentação',  type:'single',     notes:'Jantar'},
-  {id:uid(), desc:'Spotify',                   value:21.90,   date:'2026-08-10', card:'Nubank',    category:'Assinatura',   type:'fixed',      notes:''},
-];
+// Dados carregados da API BFF (sem mock)
+let expenses = [];
 
 let expSort = { col:'date', dir:'desc' };
 let expFilter = { search:'', cat:'', card:'' };
@@ -2012,12 +2200,28 @@ function populateFilters(){
   const cardSel = document.getElementById('expCardFilter');
   catSel.innerHTML = '<option value="">Todas as categorias</option>' +
     CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+  const cards = getUniqueCards().length ? getUniqueCards() : [];
   cardSel.innerHTML = '<option value="">Todos os cartões</option>' +
-    CARDS.map(c=>`<option>${c}</option>`).join('');
+    cards.map(c=>`<option>${c}</option>`).join('');
 }
 
 function populateCardSelector(){
   const selector = document.getElementById('cardSelector');
+  const cards = getUniqueCards();
+
+  // Clear existing buttons except "Todos"
+  selector.innerHTML = '<button class="chip card-select-btn active" data-card="">Todos</button>';
+
+  // Add buttons for each card from data
+  cards.forEach(card => {
+    const btn = document.createElement('button');
+    btn.className = 'chip card-select-btn';
+    btn.dataset.card = card;
+    btn.textContent = card;
+    selector.appendChild(btn);
+  });
+
+  // Add event listeners
   selector.querySelectorAll('.card-select-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       selector.querySelectorAll('.card-select-btn').forEach(b=>b.classList.remove('active'));
@@ -2097,6 +2301,8 @@ function renderExpenseTable(){
 
 /* CRUD ops */
 function saveExpense(){
+  console.log('=== FUNÇÃO SAVEEXPENSE CHAMADA ===');
+  
   const desc  = document.getElementById('f-desc').value.trim();
   const value = parseFloat(document.getElementById('f-value').value);
   const date  = document.getElementById('f-date').value;
@@ -2105,28 +2311,54 @@ function saveExpense(){
   const type  = document.getElementById('f-type').value;
   const notes = document.getElementById('f-notes').value.trim();
 
+  console.log('Dados do formulário:', { desc, value, date, card, cat, type, notes });
+
   if(!desc||!value||!date||!card||!cat){
     toast('Preencha todos os campos obrigatórios', 'error'); return;
   }
 
-  const entry = { desc, value, date, card, category:cat, type, notes };
+  const entry = { 
+    desc, 
+    value, 
+    date, 
+    card, 
+    category: cat,  // Usar 'category' pois saveExpenseToAPI espera expenseData.category
+    type, 
+    notes 
+  };
+  
   if(type==='installment'){
     entry.installCurr  = parseInt(document.getElementById('f-installCurr').value)||1;
     entry.installTotal = parseInt(document.getElementById('f-installTotal').value)||2;
   }
 
-  if(editingId){
-    const i = expenses.findIndex(e=>e.id===editingId);
-    expenses[i] = { ...expenses[i], ...entry };
-    toast('Gasto atualizado com sucesso', 'success');
-  } else {
-    expenses.unshift({ id:uid(), ...entry });
-    toast('Gasto adicionado com sucesso', 'success');
-  }
-  closeExpenseModal();
-  renderExpenseTable();
-  renderHomeRecent();
-  updateHomeKPIs();
+  console.log('Entry criado para enviar para API:', entry);
+  console.log('EditingId:', editingId);
+
+  // Usar API para salvar ou atualizar
+  const apiCall = editingId
+    ? updateExpenseInAPI(editingId, entry)
+    : saveExpenseToAPI(entry);
+
+  apiCall
+    .then((result) => {
+      console.log('Resultado do salvamento:', result);
+      toast(editingId ? 'Gasto atualizado com sucesso!' : 'Gasto adicionado com sucesso!', 'success');
+      closeExpenseModal();
+      console.log('Carregando gastos atualizados da API...');
+      return loadExpensesFromAPI();
+    })
+    .then(() => {
+      console.log('Atualizando KPIs...');
+      return updateHomeKPIs();
+    })
+    .then(() => {
+      console.log('Processo de salvamento concluído com sucesso');
+    })
+    .catch((error) => {
+      console.error('Erro no processo de salvamento:', error);
+      toast('Erro ao salvar gasto na API', 'error');
+    });
 }
 
 function openEdit(id){
@@ -2181,19 +2413,45 @@ document.getElementById('quickAddBtn').addEventListener('click',()=>{
 });
 document.getElementById('closeModal').addEventListener('click', closeExpenseModal);
 document.getElementById('cancelModal').addEventListener('click', closeExpenseModal);
-document.getElementById('saveExpense').addEventListener('click', saveExpense);
+const saveButton = document.getElementById('saveExpense');
+if (saveButton) {
+  console.log('Botão salvar encontrado, adicionando event listener');
+  saveButton.addEventListener('click', function(e) {
+    console.log('=== BOTÃO SALVAR CLICADO ===');
+    console.log('Evento:', e);
+    console.log('Elemento:', e.target);
+    e.preventDefault(); // Prevenir comportamento padrão
+    saveExpense();
+  });
+} else {
+  console.error('Botão salvar não encontrado!');
+}
 document.getElementById('uploadShortcut').addEventListener('click',()=> showView('upload'));
 
 document.getElementById('closeConfirm').addEventListener('click',()=> document.getElementById('confirmModal').classList.remove('open'));
 document.getElementById('cancelConfirm').addEventListener('click',()=> document.getElementById('confirmModal').classList.remove('open'));
 document.getElementById('doDelete').addEventListener('click',()=>{
-  expenses = expenses.filter(e=>e.id!==deletingId);
+  const id = deletingId;
   deletingId = null;
   document.getElementById('confirmModal').classList.remove('open');
-  toast('Gasto excluído', 'success');
-  renderExpenseTable();
-  renderHomeRecent();
-  updateHomeKPIs();
+  console.log('Iniciando deleção do gasto, ID:', id);
+  deleteExpenseFromAPI(id)
+    .then(() => {
+      console.log('Gasto excluído com sucesso, carregando dados atualizados...');
+      toast('Gasto excluído', 'success');
+      return loadExpensesFromAPI();
+    })
+    .then(() => {
+      console.log('Atualizando KPIs após deleção...');
+      return updateHomeKPIs();
+    })
+    .then(() => {
+      console.log('Processo de deleção concluído com sucesso');
+    })
+    .catch((error) => {
+      console.error('Erro no processo de deleção:', error);
+      toast('Erro ao excluir gasto', 'error');
+    });
 });
 
 /* close modals on overlay click */
@@ -2246,9 +2504,116 @@ document.querySelectorAll('th[data-sort]').forEach(th=>{
 /* ═══════════════════════════════════════════════════════════════
    HOME — KPIs & recent table
 ═══════════════════════════════════════════════════════════════ */
-function updateHomeKPIs(){
-  const total = expenses.reduce((s,e)=>s+e.value,0);
-  document.getElementById('kpi-total').textContent = fmt(total);
+async function updateHomeKPIs(){
+  try {
+    console.log('Atualizando KPIs do dashboard...');
+    const now = new Date();
+    const response = await fetch(`${API_URL}/dashboard/summary?month=${now.getMonth()+1}&year=${now.getFullYear()}`);
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    
+    console.log('Dados dos KPIs recebidos:', data);
+
+    // Total Gasto
+    if(data.total_month !== undefined) {
+      document.getElementById('kpi-total').textContent = fmt(data.total_month);
+      // Calculate month-over-month change if possible
+      const foot = document.getElementById('kpi-total-foot');
+      if(foot) foot.textContent = '—';
+    }
+
+    // Cartão com Maior Participação
+    const kpiTopCard = document.getElementById('kpi-top-card');
+    const kpiTopCardFoot = document.getElementById('kpi-top-card-foot');
+    if(kpiTopCard && data.top_card) {
+      kpiTopCard.textContent = data.top_card;
+      if(kpiTopCardFoot && data.top_card_pct !== undefined) {
+        kpiTopCardFoot.textContent = `${data.top_card_pct}% dos gastos do mês`;
+      }
+    } else if(kpiTopCard) {
+      kpiTopCard.textContent = '—';
+      if(kpiTopCardFoot) kpiTopCardFoot.textContent = '—';
+    }
+
+    // Maior Gasto
+    const kpiBiggest = document.getElementById('kpi-biggest');
+    const kpiBiggestFoot = document.getElementById('kpi-biggest-foot');
+    if(kpiBiggest && data.biggest_expense) {
+      kpiBiggest.textContent = fmt(data.biggest_expense.valor_parcela);
+      if(kpiBiggestFoot) {
+        const desc = data.biggest_expense.descricao || data.biggest_expense.desc || '—';
+        const date = data.biggest_expense.data ? fmtDate(data.biggest_expense.data) : '';
+        kpiBiggestFoot.textContent = date ? `${desc} — ${date}` : desc;
+      }
+    } else if(kpiBiggest) {
+      kpiBiggest.textContent = 'R$ 0,00';
+      if(kpiBiggestFoot) kpiBiggestFoot.textContent = '—';
+    }
+
+    // Parcelas Futuras
+    const kpiFuture = document.getElementById('kpi-future');
+    const kpiFutureFoot = document.getElementById('kpi-future-foot');
+    if(kpiFuture && data.future_installments !== undefined) {
+      kpiFuture.textContent = fmt(data.future_installments);
+      if(kpiFutureFoot && data.active_installments_count !== undefined) {
+        kpiFutureFoot.textContent = `${data.active_installments_count} compras parceladas ativas`;
+      }
+    } else if(kpiFuture) {
+      kpiFuture.textContent = 'R$ 0,00';
+      if(kpiFutureFoot) kpiFutureFoot.textContent = '—';
+    }
+
+    // Despesas Fixas
+    const kpiFixed = document.getElementById('kpi-fixed');
+    const kpiFixedFoot = document.getElementById('kpi-fixed-foot');
+    if(kpiFixed && data.fixed_expenses !== undefined) {
+      kpiFixed.textContent = fmt(data.fixed_expenses);
+      if(kpiFixedFoot) kpiFixedFoot.textContent = 'Aluguel, assinaturas, plano de saúde';
+    } else if(kpiFixed) {
+      kpiFixed.textContent = 'R$ 0,00';
+      if(kpiFixedFoot) kpiFixedFoot.textContent = '—';
+    }
+
+    // Previsão Próximo Mês
+    const kpiForecast = document.getElementById('kpi-forecast');
+    const kpiForecastBadge = document.getElementById('kpi-forecast-badge');
+    if(kpiForecast && data.next_month_forecast !== undefined) {
+      kpiForecast.textContent = fmt(data.next_month_forecast);
+      if(kpiForecastBadge) {
+        // Calculate percentage change if we have data
+        const currentTotal = data.total_month || 0;
+        const forecast = data.next_month_forecast || 0;
+        if(currentTotal > 0) {
+          const change = ((forecast - currentTotal) / currentTotal) * 100;
+          kpiForecastBadge.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+        } else {
+          kpiForecastBadge.textContent = '—';
+        }
+      }
+    } else if(kpiForecast) {
+      kpiForecast.textContent = 'R$ 0,00';
+      if(kpiForecastBadge) kpiForecastBadge.textContent = '—';
+    }
+
+  } catch(err) {
+    console.error('Erro ao atualizar KPIs:', err);
+    // Fallback: calcular localmente a partir dos dados já carregados
+    const total = expenses.reduce((s,e)=>s+e.value,0);
+    document.getElementById('kpi-total').textContent = fmt(total);
+    document.getElementById('kpi-total-foot').textContent = '—';
+    document.getElementById('kpi-top-card').textContent = '—';
+    document.getElementById('kpi-top-card-foot').textContent = '—';
+    throw err; // Re-throw para permitir tratamento pelo chamador
+    document.getElementById('kpi-biggest').textContent = 'R$ 0,00';
+    document.getElementById('kpi-biggest-foot').textContent = '—';
+    document.getElementById('kpi-future').textContent = 'R$ 0,00';
+    document.getElementById('kpi-future-foot').textContent = '—';
+    document.getElementById('kpi-fixed').textContent = 'R$ 0,00';
+    document.getElementById('kpi-fixed-foot').textContent = '—';
+    document.getElementById('kpi-forecast').textContent = 'R$ 0,00';
+    document.getElementById('kpi-forecast-badge').textContent = '—';
+    console.error('Erro ao buscar KPIs da API:', err);
+  }
 }
 
 function renderHomeRecent(){
@@ -2265,18 +2630,44 @@ function renderHomeRecent(){
   `).join('');
 }
 
-/* mini bar chart */
-function renderMiniChart(){
+/* mini bar chart — dados reais da API */
+async function renderMiniChart(){
   const wrap = document.getElementById('miniChart');
-  const vals = [3200,3800,4200,3900,4820,5190];
-  const labels = ['mar','abr','mai','jun','ago','set*'];
-  const mx = Math.max(...vals);
-  wrap.innerHTML = vals.map((v,i)=>`
-    <div class="mini-bar ${i===4?'current':''}"
-         style="height:${Math.round((v/mx)*100)}%;position:relative"
-         title="${labels[i]}: ${fmt(v)}">
-    </div>
-  `).join('');
+  if(!wrap) return;
+  try {
+    const response = await fetch(`${API_URL}/analytics/monthly-trend?months=6`);
+    const data = await response.json();
+    const items = data.items || [];
+    if(!items.length){ wrap.innerHTML = ''; return; }
+    const mx = Math.max(...items.map(m=>m.total||0), 1);
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    wrap.innerHTML = items.map(m=>`
+      <div class="mini-bar ${m.month===currentKey?'current':''}"
+           style="height:${Math.round(((m.total||0)/mx)*100)}%;position:relative"
+           title="${m.label||m.month}: ${fmt(m.total||0)}">
+      </div>
+    `).join('');
+  } catch(err) {
+    // Fallback: barras baseadas nos dados já carregados
+    const now = new Date();
+    const buckets = [];
+    for(let i=5;i>=0;i--){
+      const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const label = d.toLocaleDateString('pt-BR',{month:'short'});
+      const total = expenses.filter(e=>e.date.startsWith(key)).reduce((s,e)=>s+e.value,0);
+      buckets.push({key, label, total});
+    }
+    const mx = Math.max(...buckets.map(b=>b.total), 1);
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    wrap.innerHTML = buckets.map(b=>`
+      <div class="mini-bar ${b.key===currentKey?'current':''}"
+           style="height:${Math.round((b.total/mx)*100)}%;position:relative"
+           title="${b.label}: ${fmt(b.total)}">
+      </div>
+    `).join('');
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2342,21 +2733,8 @@ function showStatusPanel(state){
   });
   document.getElementById(`status${state.charAt(0).toUpperCase()+state.slice(1)}`).style.display='block';
 
-  // Generate mock review transactions on success
+  // reviewTransactions já foi populado com dados reais da API no sendBtn handler
   if(state === 'success'){
-    const mockDescs = ['Amazon','Farmácia','Posto Shell','iFood','Cinema','Mercado','Gym','Spotify','Uber Eats','PagSeguro'];
-    const card = document.getElementById('uploadCard').value || 'Nubank';
-    reviewTransactions = [];
-    for(let i=0;i<6;i++){
-      const d = new Date(); d.setDate(d.getDate()-Math.floor(Math.random()*25));
-      reviewTransactions.push({
-        desc: mockDescs[i%mockDescs.length],
-        value: parseFloat((Math.random()*300+20).toFixed(2)),
-        date: d.toISOString().split('T')[0],
-        card: card,
-        category: CATEGORIES[Math.floor(Math.random()*CATEGORIES.length)]
-      });
-    }
     renderReviewTable();
   }
 }
@@ -2368,54 +2746,83 @@ function setStep(id, state, sub){
   stEl.textContent = sub;
 }
 
-sendBtn.addEventListener('click', ()=>{
+sendBtn.addEventListener('click', async ()=>{
   if(!selectedFile) return;
   const card = document.getElementById('uploadCard').value;
+  const month = parseInt(document.getElementById('uploadMonth').value) || (new Date().getMonth()+1);
+  const year = parseInt(document.getElementById('uploadYear')?.value) || new Date().getFullYear();
   if(!card){ toast('Selecione o cartão antes de enviar', 'error'); return; }
 
   sendBtn.disabled = true;
   showStatusPanel('processing');
 
-  // Simulate multi-step upload
-  let pct = 0;
   const fill = document.getElementById('progressFill');
   const pctEl = document.getElementById('progressPct');
 
-  const steps = [
-    { id:'upload',   delay:800,  pct:30,  state:'done',    sub:'Enviado com sucesso' },
-    { id:'validate', delay:1200, pct:60,  state:'done',    sub:'Formato válido' },
-    { id:'extract',  delay:2200, pct:90,  state:'running', sub:'Lendo transações…' },
-    { id:'extract',  delay:3400, pct:100, state:'done',    sub:'Concluído' },
-    { id:'done',     delay:3600, pct:100, state:'done',    sub:'Fatura processada' },
-  ];
-
-  // Set all to pending
   ['upload','validate','extract','done'].forEach(id=> setStep(id,'pending','Aguardando…'));
   setStep('upload','running','Enviando arquivo…');
 
-  let animPct = 0;
+  // Animar progresso até 30% enquanto faz o upload
+  let animPct = 0, targetPct = 30;
   const anim = setInterval(()=>{
-    animPct = Math.min(animPct+1, pct);
-    fill.style.width = animPct+'%';
-    pctEl.textContent = animPct+'%';
+    if(animPct < targetPct){ animPct++; fill.style.width=animPct+'%'; pctEl.textContent=animPct+'%'; }
   }, 40);
 
-  steps.forEach(step=>{
-    setTimeout(()=>{
-      pct = step.pct;
-      setStep(step.id, step.state, step.sub);
-    }, step.delay);
-  });
+  try {
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('card', card);
+    formData.append('month', month);
+    formData.append('year', year);
 
-  // Randomly succeed or succeed (always succeed in demo)
-  setTimeout(()=>{
+    setStep('upload','running','Enviando arquivo…');
+    const uploadResp = await fetch(`${API_URL}/invoices/upload`, { method:'POST', body: formData });
+    if(!uploadResp.ok) throw new Error('Erro no upload');
+    const uploadData = await uploadResp.json();
+    
+    console.log('Dados do upload recebidos:', uploadData);
+
+    setStep('upload','done','Enviado com sucesso');
+    targetPct = 60; setStep('validate','running','Validando fatura…');
+
+    await new Promise(r=>setTimeout(r,400));
+    setStep('validate','done','Formato válido');
+    targetPct = 90; setStep('extract','running','Extraindo transações…');
+
+    // Mapear transações retornadas pela API
+    reviewTransactions = (uploadData.transactions || []).map(t=>({
+      id: t.id || uid(),
+      desc: t.descricao || t.desc || '',
+      value: parseFloat(t.valor_parcela || t.value || 0),
+      date: t.data || t.date || today(),
+      card: t.cartao_nome || card,
+      category: t.categoria || t.category || 'Outros'
+    }));
+    
+    console.log('Transações mapeadas para review:', reviewTransactions);
+
     clearInterval(anim);
-    fill.style.width = '100%';
-    const count = Math.floor(Math.random()*20)+8;
-    document.getElementById('extractCount').textContent = `${count} transações extraídas com sucesso`;
+    fill.style.width='100%'; pctEl.textContent='100%';
+    setStep('extract','done','Concluído');
+    setStep('done','done','Fatura processada');
+
+    const count = reviewTransactions.length;
+    document.getElementById('extractCount').textContent = `${count} transação(ões) extraída(s) com sucesso`;
     showStatusPanel('success');
+    renderReviewTable();
     toast('Fatura processada com sucesso!', 'success');
-  }, 3800);
+
+    // Guardar processing_id para confirmação posterior
+    window._processingId = uploadData.processing_id || uploadData.processingId || null;
+
+  } catch(err) {
+    clearInterval(anim);
+    console.error('Erro no upload:', err);
+    setStep('upload','error','Falha no envio');
+    showStatusPanel('error');
+    toast('Erro ao processar fatura', 'error');
+    sendBtn.disabled = false;
+  }
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2503,32 +2910,82 @@ function removeReviewTransaction(index){
   renderReviewTable();
 }
 
-function confirmReviewImport(){
+async function confirmReviewImport(){
   if(!reviewTransactions.length){
     toast('Nenhuma transação para importar', 'error'); return;
   }
 
-  // Add all reviewed transactions to main expenses
-  reviewTransactions.forEach(e => {
-    expenses.unshift({
-      id: uid(),
-      desc: e.desc,
-      value: e.value,
-      date: e.date || today(),
-      card: e.card || 'Nubank',
-      category: e.category,
-      type: 'single',
-      notes: 'Importado via fatura'
-    });
-  });
+  try {
+    // Mapear transações para o formato da API
+    const apiTransactions = reviewTransactions.map(e=>({
+      descricao: e.desc,
+      valor_parcela: parseFloat(e.value), // Garantir que seja número
+      data: formatDateForAPI(e.date || today()), // Converter formato de data
+      cartao_nome: e.card,
+      categoria: e.category,
+      tipo: 'normal',
+      parcela_atual: 1,
+      total_parcelas: 1,
+      origem: 'fatura'
+    }));
+    
+    console.log('Enviando transações para API:', apiTransactions);
 
-  toast(`${reviewTransactions.length} transações importadas com sucesso!`, 'success');
-  reviewTransactions = [];
-  renderReviewTable();
-  renderExpenseTable();
-  renderHomeRecent();
-  updateHomeKPIs();
-  showView('expenses');
+    let response;
+    if(window._processingId){
+      // Confirmar via endpoint de invoices se tiver processing_id
+      console.log('Usando endpoint de confirmação com processing_id:', window._processingId);
+      response = await fetch(`${API_URL}/invoices/confirm`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ processing_id: window._processingId, transactions: apiTransactions })
+      });
+    } else {
+      // Fallback: salvar cada transação individualmente
+      console.log('Usando fallback: salvando transações individualmente');
+      for(const t of apiTransactions){
+        const resp = await fetch(`${API_URL}/expenses`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(t)
+        });
+        if(!resp.ok) {
+          const errorText = await resp.text();
+          console.error('Erro ao salvar transação individual:', errorText);
+          throw new Error(`Erro ao salvar transação: ${errorText}`);
+        }
+      }
+    }
+    
+    if(response && !response.ok) {
+      const errorText = await response.text();
+      console.error('Erro na resposta da API:', errorText);
+      throw new Error(`Erro na API: ${errorText}`);
+    }
+    
+    console.log('Transações salvas com sucesso');
+
+    const count = reviewTransactions.length;
+    reviewTransactions = [];
+    window._processingId = null;
+    renderReviewTable();
+    
+    // Carregar dados da API com tratamento de erro
+    try {
+      await loadExpensesFromAPI();
+      await updateHomeKPIs();
+      toast(`${count} transações importadas com sucesso!`, 'success');
+      showView('expenses');
+    } catch (apiError) {
+      console.error('Erro ao carregar dados após importação:', apiError);
+      toast('Transações importadas, mas erro ao atualizar a interface', 'error');
+      // Mesmo com erro, mostrar a tela de gastos
+      showView('expenses');
+    }
+  } catch(err) {
+    console.error('Erro ao confirmar importação:', err);
+    toast('Erro ao importar transações', 'error');
+  }
 }
 
 function cancelReviewImport(){
@@ -2552,8 +3009,9 @@ document.getElementById('goToReviewBtn').addEventListener('click', () => showVie
 function populateSheetFilters(){
   const cardSel = document.getElementById('sheetCard');
   const catSel = document.getElementById('sheetCategory');
+  const cards = getUniqueCards();
   cardSel.innerHTML = '<option value="">Todos os cartões</option>' +
-    CARDS.map(c=>`<option>${c}</option>`).join('');
+    cards.map(c=>`<option>${c}</option>`).join('');
   catSel.innerHTML = '<option value="">Todas as categorias</option>' +
     CATEGORIES.map(c=>`<option>${c}</option>`).join('');
 }
@@ -2703,7 +3161,7 @@ function populateTimelineFilters(){
   catSel.innerHTML = '<option value="">Todas as categorias</option>' +
     CATEGORIES.map(c=>`<option>${c}</option>`).join('');
   cardSel.innerHTML = '<option value="">Todos os cartões</option>' +
-    CARDS.map(c=>`<option>${c}</option>`).join('');
+    getUniqueCards().map(c=>`<option>${c}</option>`).join('');
 }
 
 function getCardFiltered(){
@@ -3016,17 +3474,60 @@ function renderTimeline(){
   const periodLabels = {6:'Últimos 6 meses',12:'Últimos 12 meses',24:'Últimos 24 meses'};
   document.getElementById('timelinePeriodLabel').textContent = periodLabels[timelineFilter.period] || 'Período selecionado';
 
-  // Render chart
+  // Render chart as line with points
   const chart = document.getElementById('timelineChart');
   const maxValue = Math.max(...monthlyData.map(m=>m.total), 1);
+  const chartHeight = 300;
+  const chartWidth = chart.offsetWidth || 800;
+  const padding = 40;
+  const usableWidth = chartWidth - (padding * 2);
+  const usableHeight = chartHeight - (padding * 2);
 
-  chart.innerHTML = monthlyData.map(m=>`
-    <div class="timeline-bar" style="height:${Math.max((m.total/maxValue)*100,4)}%;background:${m.total>0?'var(--accent)':'var(--border)'}"
-         title="${m.label}: ${fmt(m.total)}">
-      <div class="timeline-bar-value">${m.total>0?fmt(m.total):''}</div>
-      <div class="timeline-bar-label">${m.label}</div>
-    </div>
-  `).join('');
+  // Calculate points
+  const points = monthlyData.map((m, i) => {
+    const x = padding + (i / (monthlyData.length - 1)) * usableWidth;
+    const y = padding + usableHeight - ((m.total / maxValue) * usableHeight);
+    return { x, y, ...m };
+  });
+
+  // Create SVG line chart
+  const svg = `
+    <svg class="timeline-line-chart" viewBox="0 0 ${chartWidth} ${chartHeight}" style="width:100%;height:100%">
+      <!-- Grid lines -->
+      <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${chartHeight - padding}" stroke="var(--border)" stroke-width="1"/>
+      <line x1="${padding}" y1="${chartHeight - padding}" x2="${chartWidth - padding}" y2="${chartHeight - padding}" stroke="var(--border)" stroke-width="1"/>
+
+      <!-- Line path -->
+      ${points.length > 1 ? `
+        <polyline
+          fill="none"
+          stroke="var(--accent)"
+          stroke-width="2"
+          points="${points.map(p => `${p.x},${p.y}`).join(' ')}"
+        />
+      ` : ''}
+
+      <!-- Data points -->
+      ${points.map((p, i) => `
+        <g class="timeline-point" data-index="${i}">
+          <circle
+            cx="${p.x}"
+            cy="${p.y}"
+            r="5"
+            fill="${p.total > 0 ? 'var(--accent)' : 'var(--border)'}"
+            stroke="${p.total > 0 ? 'var(--bg-surface)' : 'var(--border)'}"
+            stroke-width="2"
+          />
+          <text x="${p.x}" y="${chartHeight - padding + 20}" text-anchor="middle" fill="var(--text-3)" font-size="10">${p.label}</text>
+          ${p.total > 0 ? `
+            <text x="${p.x}" y="${p.y - 10}" text-anchor="middle" fill="var(--text-1)" font-size="11" font-weight="600" class="timeline-point-value">${fmt(p.total)}</text>
+          ` : ''}
+        </g>
+      `).join('')}
+    </svg>
+  `;
+
+  chart.innerHTML = svg;
 
   // Category breakdown
   const byCategory = data.reduce((acc,e)=>{
@@ -3073,23 +3574,13 @@ populateFilters();
 populateSheetFilters();
 populateCardCategoryFilter();
 populateTimelineFilters();
+populateCardSelector();
 
-// Card selector bindings
-if(document.getElementById('cardSelector')){
-  document.getElementById('cardSelector').querySelectorAll('.card-select-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      document.getElementById('cardSelector').querySelectorAll('.card-select-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      cardFilter.card = btn.dataset.card;
-      renderCardView();
-    });
-  });
-}
+// Card selector is now dynamically populated in populateCardSelector()
 
+// Renderizar estados vazios imediatamente
 renderExpenseTable();
 renderHomeRecent();
-updateHomeKPIs();
-renderMiniChart();
 renderReviewTable();
 renderSheetTable();
 renderCardView();
@@ -3507,6 +3998,30 @@ function generateSuggestionsPDF(){
 
 document.getElementById('generateSuggestions').addEventListener('click', generateSuggestions);
 document.getElementById('downloadSuggestionsPdf').addEventListener('click', generateSuggestionsPDF);
+
+// Carregar dados reais da API e re-renderizar tudo
+async function initFromAPI(){
+  try {
+    console.log('Inicializando dados da API...');
+    await loadExpensesFromAPI();       // popula window.expenses e re-renderiza tabelas
+    await updateHomeKPIs();            // KPIs do dashboard/summary
+    await renderMiniChart();           // gráfico mensal via analytics/monthly-trend
+    renderSheetTable();
+    renderCardView();
+    renderTimeline();
+    populateCardSelector();           // populate card selector with real cards
+    console.log('Inicialização da API concluída com sucesso');
+  } catch(err) {
+    console.error('Erro na inicialização da API:', err);
+    toast('Erro ao carregar dados iniciais. Algumas funcionalidades podem não funcionar corretamente.', 'error');
+  }
+}
+
+// Inicializar quando o DOM estiver pronto
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM carregado, iniciando API...');
+  initFromAPI();
+});
 </script>
 </body>
 </html>
